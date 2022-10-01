@@ -84,6 +84,7 @@ namespace DEVICE_CORE
             {
                 await Task.Delay(1000);
             }
+            await Task.Delay(3000);
 
             // IDLE SCREEN
             //await application.Command(LinkDeviceActionType.DisplayIdleScreen).ConfigureAwait(false);
