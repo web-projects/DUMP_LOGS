@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "VerifoneDumpLogs": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Development\\DEVICES\\verifone\\DUMP_LOGS\\Source\\application\\bin\\Debug\\netcoreapp3.1\\win10-x64\\VerifoneDumpLogs.exe"
+    }
+  }
+}
