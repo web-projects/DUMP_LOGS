@@ -1187,7 +1187,7 @@ namespace Devices.Verifone.VIPA
 
             if (FindEmbeddedResourceByName(resourceName, targetFile))
             {
-                Console.WriteLine($"{ConsoleMessages.UpdateDeviceUpdate.GetStringValue()} - RESOURCE : {resourceName}");
+                Console.WriteLine($"ADK BUNDLE UPLOADED: {resourceName}");
                 Logger.info($"ADK BUNDLE UPLOADED: {resourceName}");
 
                 fileStatus = PutFile(resourceName, targetFile);
