@@ -48,8 +48,10 @@ namespace Devices.Common.Interfaces
 
         LinkRequest DisplayIdleScreen(LinkRequest linkRequest);
 
-        LinkActionRequest ReportVipaVersions(LinkActionRequest linkActionRequest);
+        LinkActionRequest EnableADKLogger(LinkActionRequest linkActionRequest);
 
         LinkActionRequest GetTerminalLogs(LinkActionRequest linkActionRequest);
+
+        LinkActionRequest ReportVipaVersions(LinkActionRequest linkActionRequest);
     }
 }

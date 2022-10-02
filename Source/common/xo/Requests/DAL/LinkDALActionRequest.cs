@@ -19,8 +19,9 @@ namespace Common.XO.Requests.DAL
     [JsonConverter(typeof(StringEnumConverter))]
     public enum LinkDALActionType
     {
-        ReportVipaVersions,
+        EnableADKLogger,
         GetTerminalLogs,
+        ReportVipaVersions,
         SetDeviceIdle
     }
 }

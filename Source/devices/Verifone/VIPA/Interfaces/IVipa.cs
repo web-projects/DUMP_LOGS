@@ -24,6 +24,10 @@ namespace Devices.Verifone.VIPA.Interfaces
 
         (DeviceInfoObject deviceInfoObject, int VipaResponse) DeviceCommandReset();
 
+        (DevicePTID devicePTID, int VipaResponse) DeviceReboot();
+
+        int EnableADKLogger(bool enableContact, bool enableContactless);
+
         (BinaryStatusObject deviceInfoObject, int VipaResponse) DeviceDumpTerminalLogs();
 
         public bool DisplayMessage(VIPADisplayMessageValue displayMessageValue = VIPADisplayMessageValue.Idle, bool enableBacklight = false, string customMessage = "");

@@ -14,7 +14,8 @@ namespace Common.XO.Requests
     public enum LinkDeviceActionType
     {
         DisplayIdleScreen,
-        ReportVipaVersions,
-        GetTerminalLogs
+        EnableADKLogger,
+        GetTerminalLogs,
+        ReportVipaVersions
     }
 }

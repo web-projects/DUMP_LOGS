@@ -309,6 +309,83 @@ namespace Devices.Verifone
             return linkRequest;
         }
 
+        public LinkActionRequest EnableADKLogger(LinkActionRequest linkActionRequest)
+        {
+            Console.WriteLine($"DEVICE[{DeviceInformation.ComPort}]: ENABLE ADK LOGGER for SN='{linkActionRequest?.DeviceRequest?.DeviceIdentifier?.SerialNumber}'");
+
+            if (VipaDevice != null)
+            {
+                if (!IsConnected)
+                {
+                    VipaDevice.Dispose();
+                    VerifoneConnection = new VerifoneConnection();
+                    IsConnected = VipaDevice.Connect(VerifoneConnection, DeviceInformation);
+                }
+
+                if (IsConnected)
+                {
+                    // Push ADK Logger bundles to device
+                    int vipaResponse = VipaDevice.EnableADKLogger(AppExecConfig.ADKLoggerContact, AppExecConfig.ADKLoggerContactless);
+
+                    if (vipaResponse == (int)VipaSW1SW2Codes.Success)
+                    {
+                        Console.WriteLine($"DEVICE: ENABLE ADK LOGGER SUCCESSFULLY");
+                        Console.Write("DEVICE: REQUESTING DEVICE REBOOT...");
+
+                        try
+                        {
+                            VipaDevice.DeviceReboot();
+                            Logger.info("DEVICE: REBOOT REQUESTED.");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"ENABLED ADK LOGGER COMMAND ERROR=[{ex.Message}]");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine(string.Format("DEVICE: FAILED ENABLE ADK LOGGER REQUEST WITH ERROR=0x{0:X4}\n", vipaResponse));
+                    }
+                }
+            }
+
+            DeviceSetIdle();
+
+            return linkActionRequest;
+        }
+
+        public LinkActionRequest GetTerminalLogs(LinkActionRequest linkActionRequest)
+        {
+            Console.WriteLine($"DEVICE[{DeviceInformation.ComPort}]: DUMP TERMINAL LOGS for SN='{linkActionRequest?.DeviceRequest?.DeviceIdentifier?.SerialNumber}'");
+
+            if (VipaDevice != null)
+            {
+                if (!IsConnected)
+                {
+                    VipaDevice.Dispose();
+                    VerifoneConnection = new VerifoneConnection();
+                    IsConnected = VipaDevice.Connect(VerifoneConnection, DeviceInformation);
+                }
+
+                if (IsConnected)
+                {
+                    // OS log file
+                    (BinaryStatusObject binaryStatusObject, int VipaResponse) deviceBinaryStatus = VipaDevice.DeviceDumpTerminalLogs();
+
+                    if (deviceBinaryStatus.VipaResponse == (int)VipaSW1SW2Codes.Success)
+                    {
+                        Console.WriteLine();
+                        Console.WriteLine($"TERMINAL DUMP COMPLETED: {deviceBinaryStatus.binaryStatusObject.FileName}");
+                        Logger.info($"TERMINAL DUMP COMPLETED: {deviceBinaryStatus.binaryStatusObject.FileName}");
+                    }
+                }
+            }
+
+            DeviceSetIdle();
+
+            return linkActionRequest;
+        }
+
         public LinkActionRequest ReportVipaVersions(LinkActionRequest linkActionRequest)
         {
             Console.WriteLine($"DEVICE[{DeviceInformation.ComPort}]: REPORT VIPA VERSIONS for SN='{linkActionRequest?.DeviceRequest?.DeviceIdentifier?.SerialNumber}'");
@@ -350,38 +427,6 @@ namespace Devices.Verifone
                             //    await Task.Delay(1000);
                             Thread.Sleep(10000);
                         }
-                    }
-                }
-            }
-
-            DeviceSetIdle();
-
-            return linkActionRequest;
-        }
-
-        public LinkActionRequest GetTerminalLogs(LinkActionRequest linkActionRequest)
-        {
-            Console.WriteLine($"DEVICE[{DeviceInformation.ComPort}]: DUMP TERMINAL LOGS for SN='{linkActionRequest?.DeviceRequest?.DeviceIdentifier?.SerialNumber}'");
-
-            if (VipaDevice != null)
-            {
-                if (!IsConnected)
-                {
-                    VipaDevice.Dispose();
-                    VerifoneConnection = new VerifoneConnection();
-                    IsConnected = VipaDevice.Connect(VerifoneConnection, DeviceInformation);
-                }
-
-                if (IsConnected)
-                {
-                    // OS log file
-                    (BinaryStatusObject binaryStatusObject, int VipaResponse) deviceBinaryStatus = VipaDevice.DeviceDumpTerminalLogs();
-
-                    if (deviceBinaryStatus.VipaResponse == (int)VipaSW1SW2Codes.Success)
-                    {
-                        Console.WriteLine();
-                        Console.WriteLine($"TERMINAL DUMP COMPLETED: {deviceBinaryStatus.binaryStatusObject.FileName}");
-                        Logger.info($"TERMINAL DUMP COMPLETED: {deviceBinaryStatus.binaryStatusObject.FileName}");
                     }
                 }
             }

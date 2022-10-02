@@ -15,8 +15,9 @@ namespace Devices.Core.State.SubWorkflows.Actions.Controllers
                 new Dictionary<DeviceSubWorkflowState, Func<IDeviceSubStateController, IDeviceSubStateAction>>
                 {
                     [DisplayIdleScreen] = (IDeviceSubStateController _) => new DeviceDisplayIdleScreenSubStateAction(_),
-                    [ReportVIPAVersions] = (IDeviceSubStateController _) => new DeviceReportVipaVersionsSubStateAction(_),
+                    [EnableADKLogger] = (IDeviceSubStateController _) => new DeviceEnableADKLoggerSubStateAction(_),
                     [GetTerminalLogs] = (IDeviceSubStateController _) => new DeviceGetTerminalLogsSubStateAction(_),
+                    [ReportVIPAVersions] = (IDeviceSubStateController _) => new DeviceReportVipaVersionsSubStateAction(_),
                     [SanityCheck] = (IDeviceSubStateController _) => new DeviceSanityCheckSubStateAction(_),
                     [RequestComplete] = (IDeviceSubStateController _) => new DeviceRequestCompleteSubStateAction(_)
                 }

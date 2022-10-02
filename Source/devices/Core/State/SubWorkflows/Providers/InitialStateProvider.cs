@@ -18,8 +18,9 @@ namespace Devices.Core.State.SubWorkflows.Providers
             DeviceSubWorkflowState proposedState = ((linkActionRequest.DeviceActionRequest?.DeviceAction) switch
             {
                 LinkDeviceActionType.DisplayIdleScreen => DeviceSubWorkflowState.DisplayIdleScreen,
-                LinkDeviceActionType.ReportVipaVersions => DeviceSubWorkflowState.ReportVIPAVersions,
+                LinkDeviceActionType.EnableADKLogger => DeviceSubWorkflowState.EnableADKLogger,
                 LinkDeviceActionType.GetTerminalLogs => DeviceSubWorkflowState.GetTerminalLogs,
+                LinkDeviceActionType.ReportVipaVersions => DeviceSubWorkflowState.ReportVIPAVersions,
                 _ => DeviceSubWorkflowState.Undefined
             });
 

@@ -689,6 +689,28 @@ namespace Devices.Verifone.VIPA
             return deviceResponse;
         }
 
+        public int EnableADKLogger(bool enableContact, bool enableContactless)
+        {
+            int vipaResponse = (int)VipaSW1SW2Codes.Success;
+            
+            if (enableContact)
+            {
+                vipaResponse = PushEmbeddedBundleResource(BinaryStatusObject.EMV_CT_LOG);
+            }
+
+            if (enableContactless)
+            {
+                vipaResponse = PushEmbeddedBundleResource(BinaryStatusObject.EMV_CTLS_LOG);
+            }
+
+            if (vipaResponse == (int)VipaSW1SW2Codes.Success)
+            {
+                vipaResponse = PushEmbeddedBundleResource(BinaryStatusObject.EMV_SYS_LOG);
+            }
+ 
+            return vipaResponse;
+        }
+
         public (BinaryStatusObject deviceInfoObject, int VipaResponse) DeviceDumpTerminalLogs()
         {
             // abort previous user entries in progress
@@ -1156,6 +1178,119 @@ namespace Devices.Verifone.VIPA
             ResponseTagsHandlerSubscribed--;
 
             return vipaResponse;
+        }
+
+        private int PushEmbeddedBundleResource(string resourceName)
+        {
+            (BinaryStatusObject binaryStatusObject, int VipaResponse) fileStatus = (null, (int)VipaSW1SW2Codes.Failure);
+            string targetFile = Path.Combine(Constants.TargetDirectory, resourceName);
+
+            if (FindEmbeddedResourceByName(resourceName, targetFile))
+            {
+                Console.WriteLine($"{ConsoleMessages.UpdateDeviceUpdate.GetStringValue()} - RESOURCE : {resourceName}");
+                Logger.info($"ADK BUNDLE UPLOADED: {resourceName}");
+
+                fileStatus = PutFile(resourceName, targetFile);
+                if (fileStatus.VipaResponse == (int)VipaSW1SW2Codes.Success && fileStatus.binaryStatusObject != null)
+                {
+                    if (fileStatus.binaryStatusObject.FileSize == BinaryStatusObject.FET_SIZE)
+                    {
+                        ConsoleWriteLine($"VIPA: {resourceName} SIZE MATCH");
+                    }
+                    else
+                    {
+                        ConsoleWriteLine($"VIPA: {resourceName} SIZE MISMATCH!");
+                    }
+
+                    if (fileStatus.binaryStatusObject.FileCheckSum.Equals(BinaryStatusObject.FET_HASH, StringComparison.OrdinalIgnoreCase))
+                    {
+                        ConsoleWriteLine($"VIPA: {resourceName} HASH MATCH");
+                    }
+                    else
+                    {
+                        ConsoleWriteLine($"VIPA: {resourceName} HASH MISMATCH!");
+                    }
+                }
+                // clean up
+                if (File.Exists(targetFile))
+                {
+                    File.Delete(targetFile);
+                }
+            }
+            else
+            {
+                ConsoleWriteLine($"VIPA: RESOURCE '{resourceName}' NOT FOUND!");
+            }
+
+            return fileStatus.VipaResponse;
+        }
+
+        private (BinaryStatusObject binaryStatusObject, int VipaResponse) PutFile(string fileName, string targetFile)
+        {
+            if (string.IsNullOrEmpty(fileName))
+            {
+                return (null, (int)VipaSW1SW2Codes.Failure);
+            }
+
+            (BinaryStatusObject binaryStatusObject, int VipaResponse) deviceBinaryStatus = (null, (int)VipaSW1SW2Codes.Failure);
+
+            if (File.Exists(targetFile))
+            {
+                ResponseTagsHandlerSubscribed++;
+                ResponseTagsHandler += GetBinaryStatusResponseHandler;
+
+                FileInfo fileInfo = new FileInfo(targetFile);
+                long fileLength = fileInfo.Length;
+                byte[] streamSize = new byte[4];
+                Array.Copy(BitConverter.GetBytes(fileLength), 0, streamSize, 0, streamSize.Length);
+                Array.Reverse(streamSize);
+
+                // File information
+                var fileInformation = new TLV
+                {
+                    Tag = _6FTemplate._6fTemplateTag,
+                    InnerTags = new List<TLV>()
+                    {
+                        new TLV(_6FTemplate.FileNameTag, Encoding.UTF8.GetBytes(fileName)),
+                        new TLV(_6FTemplate.FileSizeTag, streamSize),
+                    }
+                };
+                byte[] fileInformationData = TLV.Encode(fileInformation);
+
+                DeviceBinaryStatusInformation = new TaskCompletionSource<(BinaryStatusObject binaryStatusObject, int VipaResponse)>();
+
+                // Stream Upload [00, A5]
+                SendVipaCommand(VIPACommandType.StreamUpload, 0x05, 0x81, fileInformationData);
+
+                // Tag 6F with size and checksum is returned on success
+                deviceBinaryStatus = DeviceBinaryStatusInformation.Task.Result;
+
+                //if (vipaResponse == (int)VipaSW1SW2Codes.Success)
+                if (deviceBinaryStatus.VipaResponse == (int)VipaSW1SW2Codes.Success)
+                {
+                    using (FileStream fs = File.OpenRead(targetFile))
+                    {
+                        int numBytesToRead = (int)fs.Length;
+
+                        while (numBytesToRead > 0)
+                        {
+                            byte[] readBytes = new byte[PACKET_SIZE];
+                            int bytesRead = fs.Read(readBytes, 0, PACKET_SIZE);
+                            WriteRawBytes(readBytes);
+                            numBytesToRead -= bytesRead;
+                        }
+                    }
+
+                    // wait for device reponse
+                    DeviceBinaryStatusInformation = new TaskCompletionSource<(BinaryStatusObject binaryStatusObject, int VipaResponse)>();
+                    deviceBinaryStatus = DeviceBinaryStatusInformation.Task.Result;
+                }
+
+                ResponseTagsHandler -= GetBinaryStatusResponseHandler;
+                ResponseTagsHandlerSubscribed--;
+            }
+
+            return deviceBinaryStatus;
         }
 
         private (BinaryStatusObject binaryStatusObject, int VipaResponse) GetBinaryStatus(string fileName)

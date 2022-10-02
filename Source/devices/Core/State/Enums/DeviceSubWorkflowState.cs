@@ -20,14 +20,19 @@ namespace Devices.Core.State.Enums
         DisplayIdleScreen,
 
         /// <summary>
-        /// Represents a state when DAL queries the device for VIPA bundle versions
+        /// Represents a state when DAL pushes ADK bundles to the device to enable extended logging
         /// </summary>
-        ReportVIPAVersions,
+        EnableADKLogger,
 
         /// <summary>
         /// Represents a state when DAL queries the device for Terminal Logs to retrieve
         /// </summary>
         GetTerminalLogs,
+
+        /// <summary>
+        /// Represents a state when DAL queries the device for VIPA bundle versions
+        /// </summary>
+        ReportVIPAVersions,
 
         /// <summary>
         /// Represents a state where a sanity check is performed to ensure that the DAL

@@ -13,7 +13,7 @@ namespace Devices.Core.State.SubWorkflows
             false => SanityCheck
         };
 
-        private static DeviceSubWorkflowState ComputeReportVipaVersionsStateTransition(bool exception) =>
+        private static DeviceSubWorkflowState ComputeEnableADKLoggerStateTransition(bool exception) =>
         exception switch
         {
             true => SanityCheck,
@@ -21,6 +21,13 @@ namespace Devices.Core.State.SubWorkflows
         };
 
         private static DeviceSubWorkflowState ComputeGetTerminalLogsStateTransition(bool exception) =>
+        exception switch
+        {
+            true => SanityCheck,
+            false => SanityCheck
+        };
+
+        private static DeviceSubWorkflowState ComputeReportVipaVersionsStateTransition(bool exception) =>
         exception switch
         {
             true => SanityCheck,
@@ -45,8 +52,9 @@ namespace Devices.Core.State.SubWorkflows
             state switch
             {
                 DisplayIdleScreen => ComputeDisplayIdleScreenStateTransition(exception),
-                ReportVIPAVersions => ComputeReportVipaVersionsStateTransition(exception),
+                EnableADKLogger => ComputeEnableADKLoggerStateTransition(exception),
                 GetTerminalLogs => ComputeGetTerminalLogsStateTransition(exception),
+                ReportVIPAVersions => ComputeReportVipaVersionsStateTransition(exception),
                 SanityCheck => ComputeSanityCheckStateTransition(exception),
                 RequestComplete => ComputeRequestCompletedStateTransition(exception),
                 _ => throw new StateException($"Invalid state transition '{state}' requested.")

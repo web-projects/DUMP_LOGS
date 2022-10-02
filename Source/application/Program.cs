@@ -5,10 +5,13 @@ using Common.XO.Requests;
 using Execution;
 using Microsoft.Extensions.Configuration;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace DEVICE_CORE
@@ -44,9 +47,8 @@ namespace DEVICE_CORE
 
         static bool applicationIsExiting = false;
 
-        static private IConfiguration configuration;
-
-        static private string comPort;
+        //static private IConfiguration configuration;
+        static private Config configuration;
 
         static private string targetDummyFile;
 
@@ -69,25 +71,37 @@ namespace DEVICE_CORE
             await application.Run(new AppExecConfig
             {
                 ForeGroundColor = foreGroundColor,
-                BackGroundColor = backGroundColor
+                BackGroundColor = backGroundColor,
+                ADKLoggerContact = configuration.Devices.Verifone.ADKLoggerBundles.Contains("CONTACT"),
+                ADKLoggerContactless = configuration.Devices.Verifone.ADKLoggerBundles.Contains("CTLESS")
             }).ConfigureAwait(false);
-
 
             // VIPA VERSION
             //await application.Command(LinkDeviceActionType.ReportVipaVersions).ConfigureAwait(false);
             //await Task.Delay(15000);
 
-            // DUMP LOGS
-            await application.Command(LinkDeviceActionType.GetTerminalLogs).ConfigureAwait(false);
-
-            while (File.Exists(targetDummyFile))
+            // ADK Logger
+            if (configuration.Devices.Verifone.EnableADKLogger)
             {
-                await Task.Delay(1000);
+                await application.Command(LinkDeviceActionType.EnableADKLogger).ConfigureAwait(false);
+                Console.WriteLine();
+                SetEnableADKLogger(false);
+                await Task.Delay(10000);
             }
-            await Task.Delay(3000);
+            else
+            {
+                // DUMP LOGS
+                await application.Command(LinkDeviceActionType.GetTerminalLogs).ConfigureAwait(false);
 
-            // IDLE SCREEN
-            //await application.Command(LinkDeviceActionType.DisplayIdleScreen).ConfigureAwait(false);
+                while (File.Exists(targetDummyFile))
+                {
+                    await Task.Delay(1000);
+                }
+                await Task.Delay(3000);
+
+                // IDLE SCREEN
+                //await application.Command(LinkDeviceActionType.DisplayIdleScreen).ConfigureAwait(false);
+            }
 
             applicationIsExiting = true;
 
@@ -112,29 +126,14 @@ namespace DEVICE_CORE
             string targetDirectory = Path.Combine(Environment.CurrentDirectory, "logs");
             targetDummyFile = Path.Combine(targetDirectory, Constants.TargetDummyFile);
 
-            // setup directory and file
-            //if (!File.Exists(targetDummyFile))
-            //{
-            //    try
-            //    {
-            //        Directory.CreateDirectory(targetDirectory);
-            //    }
-            //    catch (Exception ex)
-            //    {
-            //        Console.WriteLine($"FAILED TO CREATE DIRECTORY [{targetDirectory}].");
-            //    }
-
-            //    File.Create(targetDummyFile);
-            //}
-
             // Get appsettings.json config - AddEnvironmentVariables() requires package: Microsoft.Extensions.Configuration.EnvironmentVariables
+            //configuration = (IConfiguration)new ConfigurationBuilder()
             configuration = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+                .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
                 .AddEnvironmentVariables()
-                .Build();
-
-            // device comport
-            SetComPort();
+                .Build()
+                .Get<Config>();
 
             // logger manager
             SetLogging();
@@ -219,21 +218,40 @@ namespace DEVICE_CORE
             }
         }
 
-        static void SetComPort()
+        static void AppSettingsUpdate()
         {
-            comPort = configuration.GetSection("Devices:Verifone").GetValue<string>("ComPort");
+            try
+            { 
+            var jsonWriteOptions = new JsonSerializerOptions()
+            {
+                WriteIndented = true
+            };
+
+            jsonWriteOptions.Converters.Add(new JsonStringEnumConverter());
+
+            string newJson = JsonSerializer.Serialize(configuration, jsonWriteOptions);
+            Debug.WriteLine($"{newJson}");
+
+            string appSettingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
+            File.WriteAllText(appSettingsPath, newJson);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Exception in saving settings: {ex}");
+            }
         }
 
-        static string[] GetLoggingLevels()
+        static void SetEnableADKLogger(bool mode)
         {
-            return configuration.GetSection("LoggerManager:Logging").GetValue<string>("Levels").Split("|");
+            configuration.Devices.Verifone.EnableADKLogger = mode;
+            AppSettingsUpdate();
         }
 
         static void SetLogging()
         {
             try
             {
-                string[] logLevels = GetLoggingLevels();
+                string[] logLevels = configuration.LoggerManager.Logging.Levels.Split("|");
 
                 if (logLevels.Length > 0)
                 {
@@ -267,10 +285,10 @@ namespace DEVICE_CORE
             try
             {
                 // Set Foreground color
-                Console.ForegroundColor = GetColor(configuration.GetSection("Application:Colors").GetValue<string>("ForeGround"));
+                Console.ForegroundColor = GetColor(configuration.Application.Colors.ForeGround);
 
                 // Set Background color
-                Console.BackgroundColor = GetColor(configuration.GetSection("Application:Colors").GetValue<string>("BackGround"));
+                Console.BackgroundColor = GetColor(configuration.Application.Colors.BackGround);
 
                 Console.Clear();
             }

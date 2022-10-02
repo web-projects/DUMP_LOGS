@@ -14,15 +14,24 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Assets\**" />
     <Compile Remove="Common\**" />
     <Compile Remove="SerialPort\**" />
-    <EmbeddedResource Remove="Assets\**" />
     <EmbeddedResource Remove="Common\**" />
     <EmbeddedResource Remove="SerialPort\**" />
-    <None Remove="Assets\**" />
     <None Remove="Common\**" />
     <None Remove="SerialPort\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Assets\sphere.dl.EMVCTLS_log_cfg.tgz" />
+    <None Remove="Assets\sphere.dl.EMVCT_log_cfg.tgz" />
+    <None Remove="Assets\sphere.dl.syslog_cfg.tgz" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\sphere.dl.EMVCTLS_log_cfg.tgz" />
+    <EmbeddedResource Include="Assets\sphere.dl.EMVCT_log_cfg.tgz" />
+    <EmbeddedResource Include="Assets\sphere.dl.syslog_cfg.tgz" />
   </ItemGroup>
 
   <ItemGroup>

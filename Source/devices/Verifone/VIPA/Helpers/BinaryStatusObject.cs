@@ -25,6 +25,12 @@ namespace Devices.Verifone.VIPA.Helpers
         public const string FET_HASH = "1C261B56A83E30413786E809D5698579";
         public const int FET_SIZE = 0x2800;
 
+        // ADK Logger
+        public const string EMV_CT_LOG = "sphere.dl.EMVCT_log_cfg.tgz";
+        public const string EMV_CTLS_LOG = "sphere.dl.EMVCTLS_log_cfg.tgz";
+        public const string EMV_SYS_LOG = "sphere.dl.syslog_cfg.tgz";
+
+
         //public const string UNLOCK_CONFIG_BUNDLE = "dl.bundle.Sphere_UpdKeyCmd_Enable.tar";
         //public const string UNLOCK_CONFIG_HASH = "F466919BDBCF22DBF9DAD61C1E173F61";
         //public const int UNLOCK_CONFIG_SIZE = 0x5000;
