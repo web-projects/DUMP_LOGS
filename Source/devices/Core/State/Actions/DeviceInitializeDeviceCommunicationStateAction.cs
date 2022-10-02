@@ -1,4 +1,6 @@
-﻿using Devices.Common;
+﻿using Common.LoggerManager;
+using Common.XO.Responses;
+using Devices.Common;
 using Devices.Common.AppConfig;
 using Devices.Common.Constants;
 using Devices.Common.Helpers;
@@ -8,10 +10,9 @@ using Devices.Core.State.Enums;
 using Devices.Core.State.Interfaces;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Common.XO.Responses;
-using System.Linq;
 using static Devices.Common.SupportedDevices;
 
 namespace Devices.Core.State.Actions
@@ -34,27 +35,27 @@ namespace Devices.Core.State.Actions
                     switch (device.ManufacturerConfigID)
                     {
                         case IdTechManufacturerId:
-                            break;
+                        break;
 
                         case VerifoneManufacturerId:
-                            result = (deviceSection.Verifone.SupportedDevices.Select(x => x).Where(y => y.Equals($"{targetDevice.DeviceInformation.Manufacturer}-{targetDevice.DeviceInformation.Model}", StringComparison.OrdinalIgnoreCase)).Count() == 1);
-                            break;
+                        result = (deviceSection.Verifone.SupportedDevices.Select(x => x).Where(y => y.Equals($"{targetDevice.DeviceInformation.Manufacturer}-{targetDevice.DeviceInformation.Model}", StringComparison.OrdinalIgnoreCase)).Count() == 1);
+                        break;
 
                         case SimulatorManufacturerId:
-                            result = (deviceSection.Simulator.SupportedDevices.Select(x => x).Where(y => y.Equals($"{targetDevice.DeviceInformation.Manufacturer}-{targetDevice.DeviceInformation.Model}", StringComparison.OrdinalIgnoreCase)).Count() == 1);
-                            break;
+                        result = (deviceSection.Simulator.SupportedDevices.Select(x => x).Where(y => y.Equals($"{targetDevice.DeviceInformation.Manufacturer}-{targetDevice.DeviceInformation.Model}", StringComparison.OrdinalIgnoreCase)).Count() == 1);
+                        break;
 
                         case NullDeviceManufacturerId:
-                            break;
+                        break;
 
                         //case MagTekManufacturerId:
                         //    result = deviceSection.MagTekConfig != null;  //We don't need name validation until we have more than 1 model
                         //    break;
 
                         default:
-                            //_ = Controller.LoggingClient.LogErrorAsync($"Unable to obtain a device reference");
-                            System.Diagnostics.Debug.WriteLine("Unable to obtain a device reference");
-                            break;
+                        //_ = Controller.LoggingClient.LogErrorAsync($"Unable to obtain a device reference");
+                        System.Diagnostics.Debug.WriteLine("Unable to obtain a device reference");
+                        break;
                     }
                     break;
                 }
@@ -134,6 +135,13 @@ namespace Devices.Core.State.Actions
 
                         foreach (var deviceInfo in deviceInformation)
                         {
+                            if (Controller.Configuration.ComPortBlackList.Where(x => x.Equals(deviceInfo.ComPort, StringComparison.OrdinalIgnoreCase)).Count() > 0)
+                            {
+                                Logger.warning($"{deviceInfo.ComPort} BLACKLISTED: device discovery will not be performed.");
+                                Console.WriteLine($"{deviceInfo.ComPort} BLACKLISTED: device discovery will not be performed.");
+                                continue;
+                            }
+
                             DeviceConfig deviceConfig = new DeviceConfig()
                             {
                                 Valid = true
@@ -236,7 +244,9 @@ namespace Devices.Core.State.Actions
                 //Controller.LoggingClient.LogInfoAsync("Unable to find a valid device to connect to.");
                 //Console.WriteLine("Unable to find a valid device to connect to.");
                 LastException = new StateException("Unable to find a valid device to connect to.");
+                Console.WriteLine("Unable to find a valid device to connect to.");
                 _ = Error(this);
+                _ = Complete(this);
                 return Task.CompletedTask;
             }
 

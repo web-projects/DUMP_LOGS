@@ -76,31 +76,34 @@ namespace DEVICE_CORE
                 ADKLoggerContactless = configuration.Devices.Verifone.ADKLoggerBundles.Contains("CTLESS")
             }).ConfigureAwait(false);
 
-            // VIPA VERSION
-            //await application.Command(LinkDeviceActionType.ReportVipaVersions).ConfigureAwait(false);
-            //await Task.Delay(15000);
-
-            // ADK Logger
-            if (configuration.Devices.Verifone.EnableADKLogger)
+            if (application.TargetDevicesCount() > 0)
             {
-                await application.Command(LinkDeviceActionType.EnableADKLogger).ConfigureAwait(false);
-                SetEnableADKLogger(false);
-                Console.WriteLine("APPLICATION EXITING ...");
-                await Task.Delay(15000);
-            }
-            else
-            {
-                // DUMP LOGS
-                await application.Command(LinkDeviceActionType.GetTerminalLogs).ConfigureAwait(false);
+                // VIPA VERSION
+                //await application.Command(LinkDeviceActionType.ReportVipaVersions).ConfigureAwait(false);
+                //await Task.Delay(15000);
 
-                while (File.Exists(targetDummyFile))
+                // ADK Logger
+                if (configuration.Devices.Verifone.EnableADKLogger)
                 {
-                    await Task.Delay(1000);
+                    await application.Command(LinkDeviceActionType.EnableADKLogger).ConfigureAwait(false);
+                    SetEnableADKLogger(false);
+                    Console.WriteLine("APPLICATION EXITING ...");
+                    await Task.Delay(15000);
                 }
-                await Task.Delay(3000);
+                else
+                {
+                    // DUMP LOGS
+                    await application.Command(LinkDeviceActionType.GetTerminalLogs).ConfigureAwait(false);
 
-                // IDLE SCREEN
-                //await application.Command(LinkDeviceActionType.DisplayIdleScreen).ConfigureAwait(false);
+                    while (File.Exists(targetDummyFile))
+                    {
+                        await Task.Delay(1000);
+                    }
+                    await Task.Delay(3000);
+
+                    // IDLE SCREEN
+                    //await application.Command(LinkDeviceActionType.DisplayIdleScreen).ConfigureAwait(false);
+                }
             }
 
             applicationIsExiting = true;
@@ -221,19 +224,19 @@ namespace DEVICE_CORE
         static void AppSettingsUpdate()
         {
             try
-            { 
-            var jsonWriteOptions = new JsonSerializerOptions()
             {
-                WriteIndented = true
-            };
+                var jsonWriteOptions = new JsonSerializerOptions()
+                {
+                    WriteIndented = true
+                };
 
-            jsonWriteOptions.Converters.Add(new JsonStringEnumConverter());
+                jsonWriteOptions.Converters.Add(new JsonStringEnumConverter());
 
-            string newJson = JsonSerializer.Serialize(configuration, jsonWriteOptions);
-            Debug.WriteLine($"{newJson}");
+                string newJson = JsonSerializer.Serialize(configuration, jsonWriteOptions);
+                Debug.WriteLine($"{newJson}");
 
-            string appSettingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
-            File.WriteAllText(appSettingsPath, newJson);
+                string appSettingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
+                File.WriteAllText(appSettingsPath, newJson);
             }
             catch (Exception ex)
             {

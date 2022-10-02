@@ -1,5 +1,6 @@
 ﻿using Devices.Common.Config;
 using System;
+using System.Collections.Generic;
 
 namespace Devices.Common.AppConfig
 {
@@ -12,5 +13,6 @@ namespace Devices.Common.AppConfig
         public SimulatorSettings Simulator { get; internal set; } = new SimulatorSettings();
         public NoDeviceSettings NoDevice { get; internal set; } = new NoDeviceSettings();
         public int DeviceDiscoveryDelay { get; set; } = 5;
+        public List<string> ComPortBlackList { get; set; } = new List<string>();
     }
 }

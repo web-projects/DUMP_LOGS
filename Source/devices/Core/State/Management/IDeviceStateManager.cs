@@ -16,5 +16,6 @@ namespace Devices.Core.State.Management
         void DisplayDeviceStatus();
         void StartProgressReporting();
         bool ProgressBarIsActive();
+        int TargetDevicesCount();
     }
 }

@@ -1,5 +1,4 @@
-﻿using Common.Execution;
-using Common.XO.Requests;
+﻿using Common.XO.Requests;
 using Devices.Core.State.Enums;
 using Devices.Core.State.Management;
 using Execution;
@@ -43,6 +42,9 @@ namespace DEVICE_CORE
                 Console.WriteLine(" FINISHED!\n");
             }
         }
+
+        public int TargetDevicesCount()
+            => DeviceStateManager.TargetDevicesCount();
 
         public async Task Run(AppExecConfig appConfig)
         {

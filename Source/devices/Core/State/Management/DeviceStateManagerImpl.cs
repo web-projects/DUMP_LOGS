@@ -1,6 +1,7 @@
 ﻿using Common.Config;
 using Common.Core.Patterns.Queuing;
 using Common.Execution;
+using Common.LoggerManager;
 using Common.XO.Device;
 using Common.XO.Requests;
 using Common.XO.Requests.DAL;
@@ -292,6 +293,13 @@ namespace Devices.Core.State.Management
 
         private async Task OnComPortEventReceivedAsync(PortEventType comPortEvent, string portNumber)
         {
+            if (Configuration.ComPortBlackList.Where(x => x.Equals(portNumber, StringComparison.OrdinalIgnoreCase)).Count() > 0)
+            {
+                string comEvent = (comPortEvent == PortEventType.Insertion) ? "plugged" : "unplugged";
+                Logger.warning($"Comport '{comEvent}' event detected on BLACKLISTED {portNumber}: no further action will be performed.");
+                return;
+            }
+
             Debug.WriteLine($"Comport event received={comPortEvent.ToString()}");
 
             bool peformDeviceDiscovery = false;
@@ -828,6 +836,9 @@ namespace Devices.Core.State.Management
                 DeviceProgressBar = null;
             }
         }
+
+        public int TargetDevicesCount()
+            => TargetDevices?.Count() ?? 0;
 
         #endregion --- state machine management ---
     }
