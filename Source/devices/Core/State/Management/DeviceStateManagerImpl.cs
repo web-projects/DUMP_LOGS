@@ -726,7 +726,7 @@ namespace Devices.Core.State.Management
                 disposed = true;
 
                 //_ = LoggingClient.LogInfoAsync("Currently shutting down DEVICE Workflow...");
-                Console.WriteLine("Currently shutting down DEVICE Workflow...");
+                //Console.WriteLine("Currently shutting down DEVICE Workflow...");
 
                 currentStateAction?.Dispose();
 

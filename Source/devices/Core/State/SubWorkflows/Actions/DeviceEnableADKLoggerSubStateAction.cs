@@ -1,10 +1,12 @@
-﻿using Common.XO.Device;
+﻿using Common.LoggerManager;
+using Common.XO.Device;
 using Common.XO.Requests;
 using Devices.Common.Interfaces;
 using Devices.Core.Cancellation;
 using Devices.Core.Helpers;
 using Devices.Core.State.Enums;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using static Devices.Core.State.Enums.DeviceSubWorkflowState;
 
@@ -41,6 +43,13 @@ namespace Devices.Core.State.SubWorkflows.Actions
                     ICardDevice cardDevice = FindTargetDevice(deviceIdentifier);
                     if (cardDevice != null)
                     {
+                        if (Controller.Configuration.ComPortBlackList.Where(x => x.Equals(cardDevice.DeviceInformation.ComPort, StringComparison.OrdinalIgnoreCase)).Count() > 0)
+                        {
+                            Logger.warning($"{cardDevice.DeviceInformation.ComPort} BLACKLISTED: device discovery will not be performed.");
+                            Console.WriteLine($"{cardDevice.DeviceInformation.ComPort} BLACKLISTED: device discovery will not be performed.");
+                            continue;
+                        }
+
                         var timeoutPolicy = await cancellationBroker.ExecuteWithTimeoutAsync<LinkActionRequest>(
                             _ => cardDevice.EnableADKLogger(linkActionRequest),
                             DeviceConstants.TerminalDumpLogsTimeout,

@@ -8,6 +8,7 @@ This tool allows the user to retrieve terminal logs from a Verifone device and
 it can operate in two modes as follows.
 
 1. ADK LOGGER SETUP MODE
+------------------------
 
 The device can be setup to report extended ADK logging when a contact
 or contactless transaction needs further inspection.  In order to enable the ADK
@@ -33,9 +34,12 @@ parameter to bypass communicating with the device(s) in the list:
 ...
 
 2. TERMINAL LOGS RETRIEVAL MODE (default)
+-----------------------------------------
 
 With the "EnableADKLogger" parameter set to false, the tool will attempt to
 retrieve terminal logs from the permitted device.  The logs will be placed in 
 the in logs directory and the name format is "SN_DATE_TIME.tgz".
 
 Example for P200 with serial number 275-437-650: "275-437-650_221003_101500.tgz".
+
+===============================================================================

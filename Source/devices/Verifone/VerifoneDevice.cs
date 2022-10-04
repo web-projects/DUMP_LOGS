@@ -289,7 +289,7 @@ namespace Devices.Verifone
 
         public bool DeviceRecovery()
         {
-            Console.WriteLine($"DEVICE: ON PORT={DeviceInformation.ComPort} - DEVICE-RECOVERY");
+            //Console.WriteLine($"DEVICE: ON PORT={DeviceInformation.ComPort} - DEVICE-RECOVERY");
             return false;
         }
 

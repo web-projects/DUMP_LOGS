@@ -70,6 +70,7 @@ namespace DEVICE_CORE
 
             await application.Run(new AppExecConfig
             {
+                ExecutionMode = Modes.Execution.Console,
                 ForeGroundColor = foreGroundColor,
                 BackGroundColor = backGroundColor,
                 ADKLoggerContact = configuration.Devices.Verifone.ADKLoggerBundles.Contains("CONTACT"),
@@ -99,7 +100,8 @@ namespace DEVICE_CORE
                     {
                         await Task.Delay(1000);
                     }
-                    await Task.Delay(3000);
+                    Console.WriteLine();
+                    await Task.Delay(2000);
 
                     // IDLE SCREEN
                     //await application.Command(LinkDeviceActionType.DisplayIdleScreen).ConfigureAwait(false);

@@ -36,5 +36,6 @@ This an application for retrieve terminal logs from Verifone Devices.
 
 ### HISTORY ###
 
-* 20220930 - Initial repository
-* 20221002 - Added COMPORT Black Listing
+* 20220930 - Initial repository.
+* 20221002 - Added COMPORT Black Listing.
+* 20221003 - Presentation clean up.

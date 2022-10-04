@@ -95,7 +95,7 @@ namespace Devices.Verifone.VIPA
         private int ResponseTaglessHandlerSubscribed = 0;
         private int ResponseContactlessHandlerSubscribed = 0;
 
-        private Modes.Execution ExecutionMode { get; set; } = Modes.Execution.StandAlone;
+        private Modes.Execution ExecutionMode { get; set; } = Modes.Execution.Console;
 
         public DeviceInformation DeviceInformation { get; set; }
 
@@ -692,7 +692,7 @@ namespace Devices.Verifone.VIPA
         public int EnableADKLogger(bool enableContact, bool enableContactless)
         {
             int vipaResponse = (int)VipaSW1SW2Codes.Success;
-            
+
             if (enableContact)
             {
                 vipaResponse = PushEmbeddedBundleResource(BinaryStatusObject.EMV_CT_LOG);
@@ -707,12 +707,14 @@ namespace Devices.Verifone.VIPA
             {
                 vipaResponse = PushEmbeddedBundleResource(BinaryStatusObject.EMV_SYS_LOG);
             }
- 
+
             return vipaResponse;
         }
 
         public (BinaryStatusObject deviceInfoObject, int VipaResponse) DeviceDumpTerminalLogs()
         {
+            ConsoleWriteLine("ARCHIVING TERMINAL LOGS INTO BUNDLE...");
+
             // abort previous user entries in progress
             (BinaryStatusObject binaryStatusObject, int VipaResponse) deviceBinaryStatus = DeviceDumpLogs();
 
@@ -723,6 +725,9 @@ namespace Devices.Verifone.VIPA
 
             if (deviceBinaryStatus.VipaResponse == (int)VipaSW1SW2Codes.Success)
             {
+                ConsoleWriteLine("RETRIEVING TERMINAL LOGS BUNDLE...");
+                Logger.info("RETRIEVING TERMINAL LOGS BUNDLE...");
+
                 (byte[] FileByteBuffer, int BufferLength, int VipaResponse) fileData = ReadCompleteVIPAFile(deviceBinaryStatus.binaryStatusObject.FileName);
 
                 // setup target directory and filename
@@ -745,7 +750,8 @@ namespace Devices.Verifone.VIPA
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"File Write Exception: [{ex}].");
+                    ConsoleWriteLine($"File Write Exception: [{ex}].");
+                    Logger.error($"File Write Exception: [{ex}].");
                 }
 
                 // delete dummy file to indicate task completion
@@ -1187,7 +1193,7 @@ namespace Devices.Verifone.VIPA
 
             if (FindEmbeddedResourceByName(resourceName, targetFile))
             {
-                Console.WriteLine($"ADK BUNDLE UPLOADED: {resourceName}");
+                ConsoleWriteLine($"ADK BUNDLE UPLOADED: {resourceName}");
                 Logger.info($"ADK BUNDLE UPLOADED: {resourceName}");
 
                 fileStatus = PutFile(resourceName, targetFile);
@@ -1379,37 +1385,46 @@ namespace Devices.Verifone.VIPA
             int fileSize = fileStatus.binaryStatusObject.FileSize;
             int offset = 0;
             Debug.WriteLine($"Downloading File {fileName} with size {fileStatus.binaryStatusObject.FileSize}");
+            Logger.info($"Downloading File {fileName} with size {fileStatus.binaryStatusObject.FileSize}");
             CancelResponseHandlers();
             SubscribeResponseTaglessHandler(GetBinaryDataResponseHandler, true);
             byte[] resultBuffer = ArrayPool<byte>.Shared.Rent(fileSize);
 
-            while (offset < fileSize)
+            try
             {
-                DeviceBinaryStatusInformation = new TaskCompletionSource<(BinaryStatusObject binaryStatusObject, int VipaResponse)>();
-
-                //NOTE! There is a weird 100ms delays between writes right now (even though device respond within 10ms) need to investigate why
-                byte d1 = (byte)(offset & 0xFF);
-                byte p2 = (byte)(((offset & 0xFF00) >> 8) & 0xFF);
-                byte p1 = (byte)((((offset & 0xFF0000) >> 16) & 0xFF) | 0x80);
-
-                //Using 23 bit addressing to get data, (up to maximum of 255 bytes at a time, hence the loop)
-                SendVipaCommand(VIPACommandType.ReadBinary, p1, p2, new byte[] { d1 });
-
-                fileStatus = DeviceBinaryStatusInformation.Task.Result;
-                Console.WriteLine($"BYTES LEFT TO WRITE: {fileSize - offset}");
-
-                if (fileStatus.VipaResponse != (int)VipaSW1SW2Codes.Success)
+                while (offset < fileSize)
                 {
-                    Debug.WriteLine($"Download interrupted! Error {fileStatus.VipaResponse}");
-                    break;
-                }
+                    DeviceBinaryStatusInformation = new TaskCompletionSource<(BinaryStatusObject binaryStatusObject, int VipaResponse)>();
 
-                Array.Copy(fileStatus.binaryStatusObject.ReadResponseBytes, 0, resultBuffer, offset, fileStatus.binaryStatusObject.ReadResponseLength);
-                offset += fileStatus.binaryStatusObject.ReadResponseLength;
-                ArrayPool<byte>.Shared.Return(fileStatus.binaryStatusObject.ReadResponseBytes, true);
+                    //NOTE! There is a weird 100ms delays between writes right now (even though device respond within 10ms) need to investigate why
+                    byte d1 = (byte)(offset & 0xFF);
+                    byte p2 = (byte)(((offset & 0xFF00) >> 8) & 0xFF);
+                    byte p1 = (byte)((((offset & 0xFF0000) >> 16) & 0xFF) | 0x80);
+
+                    //Using 23 bit addressing to get data, (up to maximum of 255 bytes at a time, hence the loop)
+                    SendVipaCommand(VIPACommandType.ReadBinary, p1, p2, new byte[] { d1 });
+
+                    fileStatus = DeviceBinaryStatusInformation.Task.Result;
+                    ConsoleWriteLine($"BYTES LEFT TO WRITE: {fileSize - offset}");
+
+                    if (fileStatus.VipaResponse != (int)VipaSW1SW2Codes.Success)
+                    {
+                        Debug.WriteLine($"Download interrupted! Error {fileStatus.VipaResponse}");
+                        Logger.warning($"Download interrupted! Error {fileStatus.VipaResponse}");
+                        break;
+                    }
+
+                    Array.Copy(fileStatus.binaryStatusObject.ReadResponseBytes, 0, resultBuffer, offset, fileStatus.binaryStatusObject.ReadResponseLength);
+                    offset += fileStatus.binaryStatusObject.ReadResponseLength;
+                    ArrayPool<byte>.Shared.Return(fileStatus.binaryStatusObject.ReadResponseBytes, true);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.error($"DUMP TERMINAL LOGS Exception: [{ex}].");
             }
 
-            Console.WriteLine($"BYTES LEFT TO WRITE: {fileSize - offset}");
+            ConsoleWriteLine($"BYTES LEFT TO WRITE: {fileSize - offset}");
 
             SubscribeResponseTaglessHandler(GetBinaryDataResponseHandler, false);
 
