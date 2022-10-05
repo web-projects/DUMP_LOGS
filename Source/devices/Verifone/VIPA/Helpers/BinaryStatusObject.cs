@@ -27,9 +27,14 @@ namespace Devices.Verifone.VIPA.Helpers
 
         // ADK Logger
         public const string EMV_CT_LOG = "sphere.dl.EMVCT_log_cfg.tgz";
+        public const string EMV_CT_LOG_HASH = "85D322A50F9BB8F5C18B7C225D6D2FB0";
+        public const int EMV_CT_LOG_SIZE = 0x0da8;
         public const string EMV_CTLS_LOG = "sphere.dl.EMVCTLS_log_cfg.tgz";
+        public const string EMV_CTLS_LOG_HASH = "75503C5B090542DB63523984FAAE8F32";
+        public const int EMV_CTLS_LOG_SIZE = 0x0db1;
         public const string EMV_SYS_LOG = "sphere.dl.syslog_cfg.tgz";
-
+        public const string EMV_SYS_LOG_HASH = "91F9BAD78C9390A02FCE80D94D27D6D0";
+        public const int EMV_SYS_LOG_SIZE = 0x0dae;
 
         //public const string UNLOCK_CONFIG_BUNDLE = "dl.bundle.Sphere_UpdKeyCmd_Enable.tar";
         //public const string UNLOCK_CONFIG_HASH = "F466919BDBCF22DBF9DAD61C1E173F61";

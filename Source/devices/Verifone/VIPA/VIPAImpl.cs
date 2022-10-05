@@ -690,17 +690,20 @@ namespace Devices.Verifone.VIPA
 
             if (enableContact)
             {
-                vipaResponse = PushEmbeddedBundleResource(BinaryStatusObject.EMV_CT_LOG);
+                vipaResponse = PushEmbeddedBundleResource(BinaryStatusObject.EMV_CT_LOG, 
+                    BinaryStatusObject.EMV_CT_LOG_HASH, BinaryStatusObject.EMV_CT_LOG_SIZE);
             }
 
             if (enableContactless)
             {
-                vipaResponse = PushEmbeddedBundleResource(BinaryStatusObject.EMV_CTLS_LOG);
+                vipaResponse = PushEmbeddedBundleResource(BinaryStatusObject.EMV_CTLS_LOG, 
+                    BinaryStatusObject.EMV_CTLS_LOG_HASH, BinaryStatusObject.EMV_CTLS_LOG_SIZE);
             }
 
             if (vipaResponse == (int)VipaSW1SW2Codes.Success)
             {
-                vipaResponse = PushEmbeddedBundleResource(BinaryStatusObject.EMV_SYS_LOG);
+                vipaResponse = PushEmbeddedBundleResource(BinaryStatusObject.EMV_SYS_LOG, 
+                    BinaryStatusObject.EMV_SYS_LOG_HASH, BinaryStatusObject.EMV_SYS_LOG_SIZE);
             }
 
             return vipaResponse;
@@ -1143,35 +1146,35 @@ namespace Devices.Verifone.VIPA
             return vipaResponse;
         }
 
-        private int PushEmbeddedBundleResource(string resourceName)
+        private int PushEmbeddedBundleResource(string bundleName, string bundleHash, int bundleSize)
         {
             (BinaryStatusObject binaryStatusObject, int VipaResponse) fileStatus = (null, (int)VipaSW1SW2Codes.Failure);
-            string targetFile = Path.Combine(Constants.TargetDirectory, resourceName);
+            string targetFile = Path.Combine(Constants.TargetDirectory, bundleName);
 
-            if (FindEmbeddedResourceByName(resourceName, targetFile))
+            if (FindEmbeddedResourceByName(bundleName, targetFile))
             {
-                ConsoleWriteLine($"ADK BUNDLE UPLOADED: {resourceName}");
-                Logger.info($"ADK BUNDLE UPLOADED: {resourceName}");
+                ConsoleWriteLine($"ADK BUNDLE UPLOADED: {bundleName}");
+                Logger.info($"ADK BUNDLE UPLOADED: {bundleName}");
 
-                fileStatus = PutFile(resourceName, targetFile);
+                fileStatus = PutFile(bundleName, targetFile);
                 if (fileStatus.VipaResponse == (int)VipaSW1SW2Codes.Success && fileStatus.binaryStatusObject != null)
                 {
-                    if (fileStatus.binaryStatusObject.FileSize == BinaryStatusObject.FET_SIZE)
+                    if (fileStatus.binaryStatusObject.FileSize == bundleSize)
                     {
-                        ConsoleWriteLine($"VIPA: {resourceName} SIZE MATCH");
+                        ConsoleWriteLine($"VIPA: {bundleName} SIZE MATCH");
                     }
                     else
                     {
-                        ConsoleWriteLine($"VIPA: {resourceName} SIZE MISMATCH!");
+                        ConsoleWriteLine($"VIPA: {bundleName} SIZE MISMATCH!");
                     }
 
-                    if (fileStatus.binaryStatusObject.FileCheckSum.Equals(BinaryStatusObject.FET_HASH, StringComparison.OrdinalIgnoreCase))
+                    if (fileStatus.binaryStatusObject.FileCheckSum.Equals(bundleHash, StringComparison.OrdinalIgnoreCase))
                     {
-                        ConsoleWriteLine($"VIPA: {resourceName} HASH MATCH");
+                        ConsoleWriteLine($"VIPA: {bundleName} HASH MATCH");
                     }
                     else
                     {
-                        ConsoleWriteLine($"VIPA: {resourceName} HASH MISMATCH!");
+                        ConsoleWriteLine($"VIPA: {bundleName} HASH MISMATCH!");
                     }
                 }
                 // clean up
@@ -1182,7 +1185,7 @@ namespace Devices.Verifone.VIPA
             }
             else
             {
-                ConsoleWriteLine($"VIPA: RESOURCE '{resourceName}' NOT FOUND!");
+                ConsoleWriteLine($"VIPA: RESOURCE '{bundleName}' NOT FOUND!");
             }
 
             return fileStatus.VipaResponse;
