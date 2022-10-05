@@ -720,11 +720,8 @@ namespace Devices.Verifone.VIPA
                     BinaryStatusObject.EMV_SYS_LOG_HASH, BinaryStatusObject.EMV_SYS_LOG_SIZE);
             }
 
-            // setup target directory and filename
-            string targetDirectory = Path.Combine(Environment.CurrentDirectory, "logs");
-            string targetDummyFile = Path.Combine(targetDirectory, Constants.TargetDummyFile);
-
             // delete dummy file to indicate task completion
+            string targetDummyFile = Path.Combine(Constants.TargetDirectory, Constants.TargetDummyFile);
             if (File.Exists(targetDummyFile))
             {
                 File.Delete(targetDummyFile);
@@ -757,7 +754,6 @@ namespace Devices.Verifone.VIPA
                 // setup target directory and filename
                 string targetDirectory = Path.Combine(Environment.CurrentDirectory, "logs");
                 string targetFile = Path.Combine(targetDirectory, Path.GetFileName(deviceBinaryStatus.binaryStatusObject.FileName));
-                string targetDummyFile = Path.Combine(targetDirectory, Constants.TargetDummyFile);
 
                 // Write to file
                 try
@@ -779,6 +775,7 @@ namespace Devices.Verifone.VIPA
                 }
 
                 // delete dummy file to indicate task completion
+                string targetDummyFile = Path.Combine(Constants.TargetDirectory, Constants.TargetDummyFile);
                 if (File.Exists(targetDummyFile))
                 {
                     File.Delete(targetDummyFile);
@@ -1183,18 +1180,18 @@ namespace Devices.Verifone.VIPA
                 fileStatus = PutFile(bundleName, targetFile);
                 if (fileStatus.VipaResponse == (int)VipaSW1SW2Codes.Success && fileStatus.binaryStatusObject != null)
                 {
-                    if (fileStatus.binaryStatusObject.FileSize != bundleSize)
-                    {
-                        ConsoleWriteLine($"VIPA: {bundleName} SIZE MISMATCH!");
-                    }
+                    //if (fileStatus.binaryStatusObject.FileSize != bundleSize)
+                    //{
+                    //    ConsoleWrite($" SIZE MISMATCH! -");
+                    //}
 
-                    if (!fileStatus.binaryStatusObject.FileCheckSum.Equals(bundleHash, StringComparison.OrdinalIgnoreCase))
-                    {
-                        ConsoleWriteLine($"VIPA: {bundleName} HASH MISMATCH!");
-                    }
+                    //if (!fileStatus.binaryStatusObject.FileCheckSum.Equals(bundleHash, StringComparison.OrdinalIgnoreCase))
+                    //{
+                    //    ConsoleWrite($" HASH MISMATCH! -");
+                    //}
                 }
 
-                ConsoleWriteLine($" COMPLETED");
+                ConsoleWriteLine($" COMPLETED.");
                 DeviceLogger(LogLevel.Info, $"BUNDLE UPLOAD COMPLETED.");
 
                 // clean up

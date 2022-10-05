@@ -81,14 +81,14 @@ namespace Devices.Verifone
 
         public VerifoneDevice()
         {
-            string logsDir = Directory.GetCurrentDirectory() + Path.Combine("\\", LogDirectories.LogDirectory);
-            if (!Directory.Exists(logsDir))
-            {
-                Directory.CreateDirectory(logsDir);
-            }
+            //string logsDir = Directory.GetCurrentDirectory() + Path.Combine("\\", LogDirectories.LogDirectory);
+            //if (!Directory.Exists(logsDir))
+            //{
+            //    Directory.CreateDirectory(logsDir);
+            //}
 
-            string targetDummyFile = Path.Combine(logsDir, Constants.TargetDummyFile);
-
+            // create dummy file to indicate task completion
+            string targetDummyFile = Path.Combine(Constants.TargetDirectory, Constants.TargetDummyFile);
             if (!File.Exists(targetDummyFile))
             {
                 File.Create(targetDummyFile);

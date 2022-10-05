@@ -136,8 +136,7 @@ namespace DEVICE_CORE
 
 
             // create dummy file to indicate task completion when deleted
-            string targetDirectory = Path.Combine(Environment.CurrentDirectory, "logs");
-            targetDummyFile = Path.Combine(targetDirectory, Constants.TargetDummyFile);
+            targetDummyFile = Path.Combine(Constants.TargetDirectory, Constants.TargetDummyFile);
 
             // Get appsettings.json config - AddEnvironmentVariables() requires package: Microsoft.Extensions.Configuration.EnvironmentVariables
             //configuration = (IConfiguration)new ConfigurationBuilder()
