@@ -720,6 +720,16 @@ namespace Devices.Verifone.VIPA
                     BinaryStatusObject.EMV_SYS_LOG_HASH, BinaryStatusObject.EMV_SYS_LOG_SIZE);
             }
 
+            // setup target directory and filename
+            string targetDirectory = Path.Combine(Environment.CurrentDirectory, "logs");
+            string targetDummyFile = Path.Combine(targetDirectory, Constants.TargetDummyFile);
+
+            // delete dummy file to indicate task completion
+            if (File.Exists(targetDummyFile))
+            {
+                File.Delete(targetDummyFile);
+            }
+
             return vipaResponse;
         }
 
@@ -1185,7 +1195,7 @@ namespace Devices.Verifone.VIPA
                 }
 
                 ConsoleWriteLine($" COMPLETED");
-                DeviceLogger(LogLevel.Info, $" COMPLETED");
+                DeviceLogger(LogLevel.Info, $"BUNDLE UPLOAD COMPLETED.");
 
                 // clean up
                 if (File.Exists(targetFile))

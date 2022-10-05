@@ -87,10 +87,17 @@ namespace DEVICE_CORE
                 if (configuration.Devices.Verifone.EnableADKLogger)
                 {
                     await application.Command(LinkDeviceActionType.EnableADKLogger).ConfigureAwait(false);
+
+                    while (File.Exists(targetDummyFile))
+                    {
+                        await Task.Delay(1000);
+                    }
+
                     SetEnableADKLogger(false);
-                    await Task.Delay(15000);
-                    Console.WriteLine("");
+
+                    Console.WriteLine("\r\n");
                     Console.WriteLine("APPLICATION EXITING ...");
+                    Console.WriteLine("");
                 }
                 else
                 {
