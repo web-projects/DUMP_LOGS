@@ -24,6 +24,7 @@ using System.Composition;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using static Devices.Common.Constants.LogMessage;
 using StringValueAttribute = Devices.Common.Helpers.StringValueAttribute;
 
 namespace Devices.Verifone
@@ -196,11 +197,17 @@ namespace Devices.Verifone
             DeviceInformation.Manufacturer = ManufacturerConfigID;
             DeviceInformation.ComPort = deviceInfo.ComPort;
 
+            // Updated config; disconnect any old connections
+            VipaDevice?.Dispose();
+
             VerifoneConnection = new VerifoneConnection();
             active = IsConnected = VipaConnection.Connect(VerifoneConnection, DeviceInformation);
 
             if (active)
             {
+                // update configuration
+                VipaConnection.ConnectionConfiguration(config.SerialConfig, null, RaiseDeviceLog);
+
                 (DeviceInfoObject deviceInfoObject, int VipaResponse) deviceIdentifier = VipaConnection.DeviceCommandReset();
 
                 if (deviceIdentifier.VipaResponse == (int)VipaSW1SW2Codes.Success)
@@ -242,6 +249,48 @@ namespace Devices.Verifone
                 }
             }
             return null;
+        }
+
+        protected internal void RaiseDeviceLog(LogLevel level, string message)
+        {
+            switch (level)
+            {
+                case LogLevel.Info:
+                {
+                    Logger.info(message);
+                    break;
+                }
+
+                case LogLevel.Trace:
+                {
+                    Logger.info(message);
+                    break;
+                }
+
+                case LogLevel.Debug:
+                {
+                    Logger.debug(message);
+                    break;
+                }
+
+                case LogLevel.Warn:
+                {
+                    Logger.warning(message);
+                    break;
+                }
+
+                case LogLevel.Error:
+                {
+                    Logger.error(message);
+                    break;
+                }
+
+                case LogLevel.Critical:
+                {
+                    Logger.error(message);
+                    break;
+                }
+            }
         }
 
         public List<DeviceInformation> DiscoverDevices()
@@ -335,7 +384,7 @@ namespace Devices.Verifone
                         try
                         {
                             VipaDevice.DeviceReboot();
-                            Logger.info("DEVICE: REBOOT REQUESTED.");
+                            RaiseDeviceLog(LogLevel.Info, "DEVICE: REBOOT REQUESTED.");
                         }
                         catch (Exception ex)
                         {
@@ -376,7 +425,7 @@ namespace Devices.Verifone
                     {
                         Console.WriteLine();
                         Console.WriteLine($"TERMINAL DUMP COMPLETED: {deviceBinaryStatus.binaryStatusObject.FileName}");
-                        Logger.info($"TERMINAL DUMP COMPLETED: {deviceBinaryStatus.binaryStatusObject.FileName}");
+                        RaiseDeviceLog(LogLevel.Info, $"TERMINAL DUMP COMPLETED: {deviceBinaryStatus.binaryStatusObject.FileName}");
                     }
                 }
             }
@@ -389,7 +438,7 @@ namespace Devices.Verifone
         public LinkActionRequest ReportVipaVersions(LinkActionRequest linkActionRequest)
         {
             Console.WriteLine($"DEVICE[{DeviceInformation.ComPort}]: REPORT VIPA VERSIONS for SN='{linkActionRequest?.DeviceRequest?.DeviceIdentifier?.SerialNumber}'");
-            
+
             Console.WriteLine("");
             Console.WriteLine($"VIPA__: {DeviceInformation.FirmwareVersion}");
             Console.WriteLine($"VAULT_: {DeviceInformation.VOSVersions.ADKVault}");
@@ -437,5 +486,5 @@ namespace Devices.Verifone
         }
 
         #endregion --- subworkflow mapping
-        }
     }
+}

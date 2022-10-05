@@ -1,5 +1,4 @@
-﻿using Common.LoggerManager;
-using Devices.Common;
+﻿using Devices.Common;
 using Devices.Verifone.Connection.Interfaces;
 using Devices.Verifone.VIPA;
 using System;
@@ -9,6 +8,7 @@ using System.IO.Ports;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using static Devices.Common.Constants.LogMessage;
 
 namespace Devices.Verifone.Connection
 {
@@ -24,13 +24,21 @@ namespace Devices.Verifone.Connection
         internal VIPAImpl.ResponseCLessHandlerDelegate ResponseContactlessHandler = null;
 
         // optimize serial port read buffer size based on expected response
+        private const int packetTxHeaderLength = 0x04;  // CLA, INS, P1, P2
+        private const int packetRxHeaderLength = 0x04;  // NAD, PCB, LEN, LRC
+
+        // The LEN byte is the length of the packet.
+        // It includes the CLA, INS, P1, P2 bytes (but not for subsequent packets in Chained commands),
+        // includes the Lc and data field (if present) bytes, and includes the Le byte (if present),
+        // includes the SW1-SW2 bytes for responses, but excludes the LRC byte.
+        private const int rawReadSizeBytes = packetTxHeaderLength + 0xFB; // 0xFF
+        //private const int unchainedResponseMessageSize = packetRxHeaderLength + 0xFB; // 0xFF
         private const int unchainedResponseMessageSize = 1024;
+
         private const int chainedResponseMessageSize = unchainedResponseMessageSize * 10;
-        private const int portReadIdleDelayMs = 25;
+        private const int portReadIdleDelayMs = 10;
         private const int chainedCommandMinimumLength = 0xFE;
         private const int chainedCommandPayloadLength = 0xF8;
-        private const int packetHeaderLength = 4; // CLA, INS, P1, P2
-        private const int rawReadSizeBytes = 0xFE;
 
         private CancellationTokenSource cancellationTokenSource;
         private SerialPort serialPort;
@@ -48,8 +56,11 @@ namespace Devices.Verifone.Connection
         // TODO: Dependency should be injected.
         internal DeviceConfig Config { get; } = new DeviceConfig().SetSerialDeviceConfig(new SerialDeviceConfig());
 
+        private DeviceLogHandler DeviceLogHandler;
+
         public SerialConnection(DeviceInformation deviceInformation, DeviceLogHandler deviceLogHandler)
         {
+            DeviceLogHandler = deviceLogHandler;
             serialParser = new VIPASerialParserImpl(deviceLogHandler, deviceInformation.ComPort);
             cancellationTokenSource = new CancellationTokenSource();
             arrayPool = ArrayPool<byte>.Create();
@@ -91,7 +102,7 @@ namespace Devices.Verifone.Connection
             catch (Exception ex)
             {
                 Debug.WriteLine($"VIPA [{serialPort?.PortName}]: {ex.Message}");
-                Logger.error($"VIPA [{serialPort?.PortName}]: {ex.Message}");
+                DeviceLogHandler(LogLevel.Error, $"VIPA [{serialPort?.PortName}]: {ex.Message}");
 
                 if (exposeExceptions)
                 {
@@ -210,8 +221,8 @@ namespace Devices.Verifone.Connection
             lrc ^= command.nad;
             cmdBytes[cmdIndex++] = command.pcb;
             lrc ^= command.pcb;
-            cmdBytes[cmdIndex++] = (byte)(packetHeaderLength /*CLA, INS, P1, P2*/ + dataLen /*Lc, data.Length, Le*/);
-            lrc ^= (byte)(packetHeaderLength /*CLA, INS, P1, P2*/ + dataLen /*Lc, data.Length, Le*/);
+            cmdBytes[cmdIndex++] = (byte)(packetTxHeaderLength  /*CLA, INS, P1, P2*/ + dataLen /*Lc, data.Length, Le*/);
+            lrc ^= (byte)(packetTxHeaderLength                  /*CLA, INS, P1, P2*/ + dataLen /*Lc, data.Length, Le*/);
             cmdBytes[cmdIndex++] = command.cla;
             lrc ^= command.cla;
             cmdBytes[cmdIndex++] = command.ins;
@@ -287,7 +298,7 @@ namespace Devices.Verifone.Connection
                             bool parseBytes = true;
 
                             int readLength = serialPort.Read(buffer, 0, buffer.Length);
-                            Debug.WriteLineIf(LogSerialBytes, string.Format("VIPA-READ [{0}] : {1}", serialPort?.PortName, BitConverter.ToString(buffer, 0, readLength)));
+                            Debug.WriteLineIf(LogSerialBytes, string.Format("VIPA-READ [{0}](0x{1:X2}) : {2}", serialPort?.PortName, readLength, BitConverter.ToString(buffer, 0, readLength)));
 
                             // examine response for possible chained message response
                             firstPacket = ProcessChainedMessageResponseIfAppropriate(firstPacket, ref buffer, readLength, ref moreData, ref parseBytes);
@@ -377,6 +388,7 @@ namespace Devices.Verifone.Connection
                     IsChainedMessageResponse = ((buffer[1] & 0x01) == 0x01);
                 }
             }
+
             Debug.WriteLineIf(IsChainedMessageResponse, string.Format("VIPA-READ [{0}] - CHAINED MESSAGE RESPONSE - {1}", serialPort?.PortName, BitConverter.ToString(buffer, 0, readLength)));
 
             if (IsChainedMessageResponse)
@@ -585,7 +597,7 @@ namespace Devices.Verifone.Connection
             int dataLen = command.data?.Length ?? 0;
 
             // chained command must be of minimum length: it includes the CLA, INS, P1, P2 bytes
-            if ((dataLen + packetHeaderLength) < chainedCommandMinimumLength)
+            if ((dataLen + packetTxHeaderLength) < chainedCommandMinimumLength)
             {
                 return false;
             }

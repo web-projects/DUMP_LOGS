@@ -1,7 +1,4 @@
-﻿using Common.LoggerManager;
-using Devices.Common;
-using Devices.Common.Helpers;
-using Devices.Verifone.Connection;
+﻿using Devices.Common;
 using Devices.Verifone.Connection.Interfaces;
 using Devices.Verifone.VIPA;
 using Devices.Verifone.VIPA.TagLengthValue;
@@ -10,7 +7,7 @@ using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Text.RegularExpressions;
+using static Devices.Common.Constants.LogMessage;
 
 namespace Devices.Verifone.Connection
 {
@@ -149,6 +146,8 @@ namespace Devices.Verifone.Connection
                 // offset from length to LRC is 3
                 if (!isChainedCommand && combinedResponseBytes[maxPacketLen] != lrc)
                 {
+                    deviceLogHandler?.Invoke(LogLevel.Error,
+                       string.Format("VIPA: message LRC error - Expected=[0x{0:X2}] != Calculated=[0x{1:X2}]", combinedResponseBytes[maxPacketLen], lrc));
                     readErrorLevel = ReadErrorLevel.Missing_LRC;
                     return true;
                 }
@@ -169,16 +168,25 @@ namespace Devices.Verifone.Connection
                     int componentBytesLength = (int)combinedResponseBytes[2];
                     byte[] componentBytes = arrayPool.Rent(componentBytesLength);
 
-                    // copy component bytes
-                    Buffer.BlockCopy(combinedResponseBytes, 3, componentBytes, 0, componentBytesLength);
+                    try
+                    {
+                        // set maximum component copy length
+                        componentBytesLength = Math.Min(componentBytesLength, combinedResponseBytes.Length - 0x03);
 
-                    addedComponentBytes.Add(new Tuple<int, byte[]>(componentBytesLength, componentBytes));
-                    consumedResponseBytesLength = componentBytesLength + headerProtoLen;
+                        // copy component bytes: skip NAD PCB LEN from Frame 
+                        Buffer.BlockCopy(combinedResponseBytes, 0x03, componentBytes, 0, componentBytesLength);
 
-                    Debug.WriteLineIf(SerialConnection.LogSerialBytes, $"VIPA-RRCBADD [{comPort}]: {BitConverter.ToString(componentBytes, 0, componentBytesLength)}");
+                        addedComponentBytes.Add(new Tuple<int, byte[]>(componentBytesLength, componentBytes));
+                        consumedResponseBytesLength = componentBytesLength + headerProtoLen;
 
-                    string resultString = Regex.Replace(ConversionHelper.ByteArrayCodedHextoString(componentBytes), @"[^\u0020-\u007E]", ".", RegexOptions.Compiled);
-                    Debug.WriteLine($"CFRE:\r\n'{resultString}'");
+                        Debug.WriteLineIf(SerialConnection.LogSerialBytes, $"VIPA-RRCBADD [{comPort}]: {BitConverter.ToString(componentBytes, 0, componentBytesLength)}");
+                    }
+                    catch (Exception ex)
+                    {
+                        deviceLogHandler?.Invoke(LogLevel.Error, $"Error processing chained-message response({ex})");
+                        PoolReturnIfNotNull(arrayPool, componentBytes);
+                        return !isChainedMessageResponse;
+                    }
                 }
 
                 // 1st packet      : NAD PCB(bit 0 set) LEN CLA INS P1 P2 Lc Data… LRC
@@ -207,6 +215,21 @@ namespace Devices.Verifone.Connection
             return false;
         }
 
+        /// <summary>
+        /// Length Expected (Le) byte
+        /// For specific commands, there is an Le byte (the “expected” length of data to be returned).
+        /// This would mean that the following packet structure could occur:
+        /// 
+        /// [NAD, PCB, LEN]
+        /// [CLA, INS, P1, P2, Lc]
+        /// [Data, Le]
+        /// [LRC]
+        /// 
+        /// </summary>
+        /// <param name="responseTagsHandler"></param>
+        /// <param name="responseTaglessHandler"></param>
+        /// <param name="responseContactlessHandler"></param>
+        /// <param name="isChainedMessageResponse"></param>
         public void ReadAndExecute(VIPAImpl.ResponseTagsHandlerDelegate responseTagsHandler, VIPAImpl.ResponseTaglessHandlerDelegate responseTaglessHandler, VIPAImpl.ResponseCLessHandlerDelegate responseContactlessHandler, bool isChainedMessageResponse = false)
         {
             bool addedResponseComponent = true;
@@ -235,6 +258,7 @@ namespace Devices.Verifone.Connection
                         Array.Clear(totalDecodeBytes, 0, totalDecodeBytes.Length);
 
                         int totalDecodeOffset = 0;
+
                         foreach (Tuple<int, byte[]> component in addedComponentBytes)
                         {
                             Buffer.BlockCopy(component.Item2, 0, totalDecodeBytes, totalDecodeOffset, component.Item1);
@@ -244,13 +268,31 @@ namespace Devices.Verifone.Connection
 
                         if (isChainedMessageResponse)
                         {
-                            totalDecodeSize = totalDecodeOffset - 2; // skip final response header
+                            // Skip final response header and use LEN of final response
+                            if (totalDecodeBytes[0] == 0x01 && totalDecodeBytes[2] == 0xFE)
+                            {
+                                int count = totalDecodeOffset - 3;  // NAD + PCB + LEN
+                                Buffer.BlockCopy(totalDecodeBytes, 3, totalDecodeBytes, 0, count);
+                                // Remove trailing bytes
+                                for (int i = count; i < totalDecodeOffset; i++)
+                                {
+                                    totalDecodeBytes[i] = 0x00;
+                                }
+                                totalDecodeSize = totalDecodeOffset - 3;    // NAD + PCB + LEN
+                            }
+                            totalDecodeSize -= 2;                       // SW1 + SW2
                             totalDecodeSize = CalculateByteArrayLength(totalDecodeBytes, totalDecodeSize - 1);
                             consumedResponseBytesLength = combinedResponseLength = totalDecodeSize;
+                            // Reset response code from the newly updated final block
+                            if (responseCode != (int)VipaSW1SW2Codes.Success)
+                            {
+                                responseCode = (totalDecodeBytes[totalDecodeSize] << 8) + totalDecodeBytes[totalDecodeSize + 1];
+                            }
                         }
                         else
                         {
-                            Buffer.BlockCopy(combinedResponseBytes, 3, totalDecodeBytes, totalDecodeOffset, combinedResponseBytes[2] - 2);    // Skip final response header and use LEN of final response (no including the SW1, SW2, and LRC)
+                            // Skip final response header and use LEN of final response (not including the SW1, SW2, and LRC bytes)
+                            Buffer.BlockCopy(combinedResponseBytes, 3, totalDecodeBytes, totalDecodeOffset, combinedResponseBytes[2] - 2);
                         }
 
                         addedComponentBytes.Clear();
@@ -262,7 +304,7 @@ namespace Devices.Verifone.Connection
                             if (responseCode == (int)VipaSW1SW2Codes.Success)
                             {
                                 tags = TLV.Decode(totalDecodeBytes, 0, totalDecodeSize, nestedTagTags.ToArray());
-                                Debug.WriteLineIf(SerialConnection.LogSerialBytes, $"VIPA-DECODED [{comPort}]: {BitConverter.ToString(totalDecodeBytes, 0, totalDecodeSize)}");
+                                Debug.WriteLineIf(SerialConnection.LogSerialBytes, $"VIPA-DECODED [{comPort}]: {BitConverter.ToString(totalDecodeBytes, 0, isChainedMessageResponse ? totalDecodeSize + 1 : totalDecodeSize)}");
                             }
 
                             if (responseTagsHandler != null)
@@ -276,9 +318,7 @@ namespace Devices.Verifone.Connection
                         }
                         else if (responseTaglessHandler != null)
                         {
-                            Debug.WriteLineIf(SerialConnection.LogSerialBytes,
-                                //$"VIPA-TAGLESS DECODED [{comPort}]: {(responseCode == (int)VipaSW1SW2Codes.Success ? string.Empty : "NOTSUCCESS")} {BitConverter.ToString(totalDecodeBytes, 0, totalDecodeBytes.Length)}");
-                                $"VIPA-TAGLESS DECODED [{comPort}]: {(responseCode == (int)VipaSW1SW2Codes.Success ? string.Empty : "NOTSUCCESS")} {BitConverter.ToString(totalDecodeBytes, 0, totalDecodeSize)}");
+                            Debug.WriteLineIf(SerialConnection.LogSerialBytes, $"VIPA-TAGLESS DECODED [{comPort}]: {(responseCode == (int)VipaSW1SW2Codes.Success ? string.Empty : "NOTSUCCESS")} {BitConverter.ToString(totalDecodeBytes, 0, totalDecodeBytes.Length)}");
                             responseTaglessHandler.Invoke(totalDecodeBytes, totalDecodeSize, responseCode);
                         }
                         arrayPool.Return(totalDecodeBytes, false);
@@ -293,16 +333,18 @@ namespace Devices.Verifone.Connection
                         Debug.WriteLineIf(SerialConnection.LogSerialBytes, $"VIPA-READ [{comPort}]: ERROR LEVEL: '{readErrorLevel}'");
                         if (combinedResponseBytes is null || combinedResponseLength == 0)
                         {
-                            //deviceLogHandler?.Invoke(XO.ProtoBuf.LogMessage.Types.LogLevel.Warn, $"Error reading vipa-byte stream({readErrorLevel}): 0 || <null>");
                             Debug.WriteLineIf(SerialConnection.LogSerialBytes, $"Error reading vipa-byte stream({readErrorLevel}");
-                            //Logger.error($"Error reading vipa-byte stream({readErrorLevel}");
+                            deviceLogHandler?.Invoke(LogLevel.Error, $"Error reading vipa-byte stream({readErrorLevel}");
                         }
                         else
                         {
-                            //deviceLogHandler?.Invoke(XO.ProtoBuf.LogMessage.Types.LogLevel.Warn, $"Error reading vipa-byte stream({readErrorLevel}): " + BitConverter.ToString(combinedResponseBytes, 0, combinedResponseLength));
                             Debug.WriteLineIf(SerialConnection.LogSerialBytes, $"Error reading vipa-byte stream({readErrorLevel}): " + BitConverter.ToString(combinedResponseBytes, 0, combinedResponseLength));
-                            //Logger.error($"Error reading vipa-byte stream({readErrorLevel}): " + BitConverter.ToString(combinedResponseBytes, 0, combinedResponseLength));
+                            deviceLogHandler?.Invoke(LogLevel.Error, $"Error reading vipa-byte stream({readErrorLevel}): " + BitConverter.ToString(combinedResponseBytes, 0, combinedResponseLength));
                         }
+
+                        // When the device is in a indeterminate state due to a parsing error, we must notify the requestor of the error to quickly release the response event handler. 
+                        // Thus helping with faster device recovery (i.e. don't wait for the CancellationToken to expire).
+                        responseTagsHandler?.Invoke(null, (int)VipaSW1SW2Codes.Failure);
                     }
 
                     if (consumedResponseBytesLength >= combinedResponseLength || isChainedMessageResponse)
@@ -338,17 +380,15 @@ namespace Devices.Verifone.Connection
                 sane = false;
                 if (combinedResponseBytes is { })
                 {
-                    //deviceLogHandler?.Invoke(XO.ProtoBuf.LogMessage.Types.LogLevel.Warn, $"VIPA-PARSE[{comPort}]: SanityCheckFailed-{combinedResponseLength}-{BitConverter.ToString(combinedResponseBytes, 0, combinedResponseBytes.Length)}");
                     Debug.WriteLineIf(SerialConnection.LogSerialBytes, $"VIPA-PARSE[{comPort}]: SanityCheckFailed-LEN={combinedResponseLength}\r\nBYTES: [{BitConverter.ToString(combinedResponseBytes, 0, combinedResponseBytes.Length)}]");
-                    Logger.error($"VIPA-PARSE[{comPort}]: SanityCheckFailed-LEN={combinedResponseLength}\r\nBYTES: [{BitConverter.ToString(combinedResponseBytes, 0, combinedResponseBytes.Length)}]");
+                    deviceLogHandler?.Invoke(LogLevel.Error, $"VIPA-PARSE[{comPort}]: SanityCheckFailed-LEN={combinedResponseLength}\r\nBYTES: [{BitConverter.ToString(combinedResponseBytes, 0, combinedResponseBytes.Length)}]");
                     arrayPool.Return(combinedResponseBytes);
                     combinedResponseBytes = null;
                 }
                 else
                 {
-                    //deviceLogHandler?.Invoke(XO.ProtoBuf.LogMessage.Types.LogLevel.Warn, $"VIPA-PARSE[{comPort}]: SanityCheckFailed-{combinedResponseLength}");
                     Debug.WriteLineIf(SerialConnection.LogSerialBytes, $"VIPA-PARSE[{comPort}]: SanityCheckFailed-LEN={combinedResponseLength}");
-                    Logger.error($"VIPA-PARSE[{comPort}]: SanityCheckFailed-LEN={combinedResponseLength}");
+                    deviceLogHandler?.Invoke(LogLevel.Error, $"VIPA-PARSE[{comPort}]: SanityCheckFailed-LEN={combinedResponseLength}");
                     combinedResponseLength = 0;
                 }
             }
@@ -357,13 +397,12 @@ namespace Devices.Verifone.Connection
             if (addedComponentBytes.Count > 0)
             {
                 sane = false;
-                //deviceLogHandler?.Invoke(XO.ProtoBuf.LogMessage.Types.LogLevel.Warn, $"VIPA-PARSE[{comPort}]: SanityCheckFailedComponentCheck-{addedComponentBytes.Count}");
+                deviceLogHandler?.Invoke(LogLevel.Warn, $"VIPA-PARSE[{comPort}]: SanityCheckFailedComponentCheck-{addedComponentBytes.Count}");
                 Debug.WriteLineIf(SerialConnection.LogSerialBytes, $"VIPA-PARSE[{comPort}]: SanityCheckFailedComponentCheck-LEN={addedComponentBytes.Count}");
                 foreach (Tuple<int, byte[]> component in addedComponentBytes)
                 {
-                    //deviceLogHandler?.Invoke(XO.ProtoBuf.LogMessage.Types.LogLevel.Warn, $"VIPA-PARSE[{comPort}]: SanityCheckFailed-StoredComponent-{BitConverter.ToString(component.Item2, 0, component.Item1)}");
                     Debug.WriteLineIf(SerialConnection.LogSerialBytes, $"VIPA-PARSE[{comPort}]: SanityCheckFailed-StoredComponent\r\nBYTES: [{BitConverter.ToString(component.Item2, 0, component.Item1)}]");
-                    Logger.error($"VIPA-PARSE[{comPort}]: SanityCheckFailed-StoredComponent\r\nBYTES: [{BitConverter.ToString(component.Item2, 0, component.Item1)}]");
+                    deviceLogHandler?.Invoke(LogLevel.Error, $"VIPA-PARSE[{comPort}]: SanityCheckFailed-StoredComponent\r\nBYTES: [{BitConverter.ToString(component.Item2, 0, component.Item1)}]");
                     arrayPool.Return(component.Item2);
                 }
                 addedComponentBytes.Clear();
@@ -372,9 +411,8 @@ namespace Devices.Verifone.Connection
             if (ReadErrorLevel.None != readErrorLevel)
             {
                 sane = false;
-                //deviceLogHandler?.Invoke(XO.ProtoBuf.LogMessage.Types.LogLevel.Warn, $"VIPA-PARSE[{comPort}]: SanityCheckFailedStateCheck-{readErrorLevel}");
                 Debug.WriteLineIf(SerialConnection.LogSerialBytes, $"VIPA-PARSE[{comPort}]: SanityCheckFailedStateCheck-{readErrorLevel}");
-                Logger.error($"VIPA-PARSE[{comPort}]: SanityCheckFailedStateCheck-{readErrorLevel}");
+                //deviceLogHandler?.Invoke(LogLevel.Error, $"VIPA-PARSE[{comPort}]: SanityCheckFailedStateCheck-{readErrorLevel}");
             }
 
             return sane;
@@ -432,11 +470,14 @@ namespace Devices.Verifone.Connection
                     {
                         Debug.WriteLineIf(SerialConnection.LogSerialBytes, $"VIPA-RRCBADD [{comPort}]|FRAME#{frame++}: {BitConverter.ToString(workerBuffer, 0, workerBufferLen)}");
                         workerPool.Return(workerBuffer);
+                        deviceLogHandler?.Invoke(LogLevel.Error, 
+                            string.Format("VIPA: message LRC error - Current=[0x{0:X2}] != Calculated=[0x{1:X2}]", workerBuffer[workerBufferLen], lrc));
                         readErrorLevel = ReadErrorLevel.Missing_LRC;
                         return true;
                     }
 
                     // remove LRC
+                    int workerBufferReportLen = workerBufferLen + 1;
                     workerBufferLen -= i > 0 ? 3 : 0;
                     Buffer.BlockCopy(workerBuffer, ((i > 0) ? 3 : 0), componentBytes, offset, workerBufferLen);
                     offset += workerBufferLen;
@@ -451,9 +492,8 @@ namespace Devices.Verifone.Connection
             }
             catch (Exception ex)
             {
-                //deviceLogHandler?.Invoke(XO.ProtoBuf.LogMessage.Types.LogLevel.Error, $"Error processing chained-message response({ex.Message})");
                 Debug.WriteLineIf(SerialConnection.LogSerialBytes, $"Error processing chained-message response({ex.Message})");
-                Logger.error($"Error processing chained-message response({ex.Message})");
+                deviceLogHandler?.Invoke(LogLevel.Error, $"Error processing chained-message response({ex.Message})");
                 PoolReturnIfNotNull(workerPool, workerBuffer);
                 PoolReturnIfNotNull(arrayPool, componentBytes);
             }
@@ -461,19 +501,36 @@ namespace Devices.Verifone.Connection
             return false;
         }
 
+        /// <summary>
+        /// This method provides the length of array of bytes to find the location of the LRC byte.
+        /// Because the LRC byte can be 0, we need to ensure that at least two bytes past the candidate LRC byte
+        /// are indeed non-zero byte values.
+        /// </summary>
+        /// <param name="array"></param>
+        /// <param name="startPosition"></param>
+        /// <returns></returns>
         private int CalculateByteArrayLength(byte[] array, int startPosition)
         {
             // array length returns the size of the array instead of the length of its contents
-            int length;
+            int length = startPosition;
 
-            // check for possible buffer overrun on last copied block
-            for (length = Math.Min(startPosition, array.Length - 1); length > 0; length--)
+            try
             {
-                if (array[length] != 0x00)
+                // check for possible buffer overrun on last copied block
+                for (length = Math.Min(startPosition, array.Length - 1); length > 0; length--)
                 {
-                    break;
+                    // LRC Byte can be 0x00
+                    if (array[length] != 0x00 || (array[length - 1] != 0x00 && array[length - 2] != 0x00))
+                    {
+                        break;
+                    }
                 }
             }
+            catch (Exception ex)
+            {
+                deviceLogHandler?.Invoke(LogLevel.Error, $"Error calculating array length - '{ex}'");
+            }
+
             return length;
         }
 
@@ -487,6 +544,8 @@ namespace Devices.Verifone.Connection
             {
                 lrc ^= array[index];
             }
+
+            Debug.WriteLine(string.Format("LRC BYTE: [0x{0:X2}]", lrc));
 
             return lrc;
         }

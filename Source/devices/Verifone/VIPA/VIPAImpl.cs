@@ -268,13 +268,8 @@ namespace Devices.Verifone.VIPA
         #region --- VIPA commands ---
 
         #region --- Utilities ---
-        //private void DeviceLogger(LogLevel logLevel, string message) =>
-        //    DeviceLogHandler?.Invoke(logLevel, $"{StringValueAttribute.GetStringValue(DeviceType.Verifone)}[{DeviceInformation?.Model}, {DeviceInformation?.SerialNumber}, {DeviceInformation?.ComPort}]: {{{message}}}");
-        private void DeviceLogger(LogLevel logLevel, string message)
-        {
-
-        }
-
+        private void DeviceLogger(LogLevel logLevel, string message) =>
+            DeviceLogHandler?.Invoke(logLevel, $"{StringValueAttribute.GetStringValue(DeviceType.Verifone)}[{DeviceInformation?.Model}, {DeviceInformation?.SerialNumber}, {DeviceInformation?.ComPort}]: {{{message}}}");
         #endregion --- Utilities ---
 
         #region --- Template Processing ---
@@ -720,7 +715,9 @@ namespace Devices.Verifone.VIPA
 
             // vvv FOR DEBUGGING ONLY vvv
             //(BinaryStatusObject binaryStatusObject, int VipaResponse) deviceBinaryStatus = (new BinaryStatusObject(), (int)VipaSW1SW2Codes.Success);
-            //deviceBinaryStatus.binaryStatusObject.FileName = "logs/275-437-650_220930_161820.tgz";
+            //deviceBinaryStatus.binaryStatusObject.FileName = "logs/275-437-650_221004_170307.tgz";
+            // PROGRESS % DEBUGGING
+            //deviceBinaryStatus.binaryStatusObject.FileName = "contlemv.cfg";
             // ^^^ FOR DEBUGGING ONLY ^^^
 
             if (deviceBinaryStatus.VipaResponse == (int)VipaSW1SW2Codes.Success)
@@ -728,7 +725,7 @@ namespace Devices.Verifone.VIPA
                 ConsoleWriteLine("RETRIEVING TERMINAL LOGS BUNDLE...");
                 Logger.info("RETRIEVING TERMINAL LOGS BUNDLE...");
 
-                (byte[] FileByteBuffer, int BufferLength, int VipaResponse) fileData = ReadCompleteVIPAFile(deviceBinaryStatus.binaryStatusObject.FileName);
+                (byte[] FileByteBuffer, int BufferLength, int VipaResponse) fileData = ReadBinaryFile(deviceBinaryStatus.binaryStatusObject.FileName);
 
                 // setup target directory and filename
                 string targetDirectory = Path.Combine(Environment.CurrentDirectory, "logs");
@@ -751,7 +748,7 @@ namespace Devices.Verifone.VIPA
                 catch (Exception ex)
                 {
                     ConsoleWriteLine($"File Write Exception: [{ex}].");
-                    Logger.error($"File Write Exception: [{ex}].");
+                    DeviceLogger(LogLevel.Error, $"File Write Exception: [{ex}].");
                 }
 
                 // delete dummy file to indicate task completion
@@ -865,52 +862,12 @@ namespace Devices.Verifone.VIPA
                         continue;
                     }
 
-                    // GetBinaryStatus: validate file SIZE and HASH
-                    //(BinaryStatusObject binaryStatusObject, int VipaResponse) fileBinaryStatus = GetBinaryStatus(configFile.Value.fileName);
-
-                    //if (fileBinaryStatus.VipaResponse != (int)VipaSW1SW2Codes.Success)
-                    //{
-                    //    Debug.WriteLine(string.Format("VIPA {0} ACCESS ERROR=0x{1:X4} - '{2}'",
-                    //        configFile.Value.fileName, fileStatus.VipaResponse, ((VipaSW1SW2Codes)fileStatus.VipaResponse).GetStringValue()));
-
-                    //    // Clean up pool allocation, clearing the array
-                    //    if (fileStatus.binaryStatusObject.ReadResponseBytes != null)
-                    //    {
-                    //        ArrayPool<byte>.Shared.Return(fileStatus.binaryStatusObject.ReadResponseBytes, true);
-                    //    }
-
-                    //    continue;
-                    //}
-
-                    // Check for size match
-                    //if (fileBinaryStatus.binaryStatusObject.FileSize != configFile.Value.fileSize)
-                    //{
-                    //Logger.error($"VIPA: {configFile.Value.fileName} SIZE MISMATCH! - actual={fileBinaryStatus.binaryStatusObject.FileSize}");
-
-                    // requires CustId to process proper image version
-                    //if (configFile.Value.configType != BinaryStatusObject.DeviceConfigurationTypes.IdleConfiguration)
-                    //{
-                    //    continue;
-                    //}
-                    //}
-
-                    // Check for HASH Match
-                    //if (!fileBinaryStatus.binaryStatusObject.FileCheckSum.Equals(configFile.Value.fileHash, StringComparison.OrdinalIgnoreCase))
-                    //{
-                    //    Logger.error($"VIPA: {configFile.Value.fileName} HASH MISMATCH! - actual={fileBinaryStatus.binaryStatusObject.FileCheckSum}");
-                    // requires CustId to process proper image version
-                    //if (configFile.Value.configType != BinaryStatusObject.DeviceConfigurationTypes.IdleConfiguration)
-                    //{
-                    //    continue;
-                    //}
-                    //}
-
                     // ReadBinary: read file contents
                     fileStatus = ReadBinaryDataFromSelectedFile(0x00, (byte)fileStatus.binaryStatusObject.FileSize);
 
                     if (fileStatus.VipaResponse != (int)VipaSW1SW2Codes.Success)
                     {
-                        Logger.error(string.Format("VIPA {0} ACCESS ERROR=0x{1:X4} - '{2}'",
+                        DeviceLogger(LogLevel.Error, string.Format("VIPA {0} ACCESS ERROR=0x{1:X4} - '{2}'",
                             configFile.Value.fileName, fileStatus.VipaResponse, ((VipaSW1SW2Codes)fileStatus.VipaResponse).GetStringValue()));
 
                         // Clean up pool allocation, clearing the array
@@ -1374,7 +1331,7 @@ namespace Devices.Verifone.VIPA
             return deviceBinaryStatus;
         }
 
-        public (byte[] FileByteBuffer, int BufferLength, int VipaResponse) ReadCompleteVIPAFile(string fileName)
+        private (byte[] FileByteBuffer, int BufferLength, int VipaResponse) ReadBinaryFile(string fileName)
         {
             (BinaryStatusObject binaryStatusObject, int VipaResponse) fileStatus = SelectFileForOps(fileName);
             if (fileStatus.VipaResponse != (int)VipaSW1SW2Codes.Success || fileStatus.binaryStatusObject.FileNotFound)
@@ -1382,30 +1339,45 @@ namespace Devices.Verifone.VIPA
                 return (null, 0, fileStatus.VipaResponse);
             }
 
-            int fileSize = fileStatus.binaryStatusObject.FileSize;
+            double fileSize = fileStatus.binaryStatusObject.FileSize;
             int offset = 0;
             Debug.WriteLine($"Downloading File {fileName} with size {fileStatus.binaryStatusObject.FileSize}");
             Logger.info($"Downloading File {fileName} with size {fileStatus.binaryStatusObject.FileSize}");
             CancelResponseHandlers();
             SubscribeResponseTaglessHandler(GetBinaryDataResponseHandler, true);
-            byte[] resultBuffer = ArrayPool<byte>.Shared.Rent(fileSize);
+            byte[] resultBuffer = ArrayPool<byte>.Shared.Rent((int)fileSize);
+
+            string fmtFileSize = string.Format("BYTES TO READ: [{{0,{0}}}]", fileSize.ToString().Length);
+            string formatSpecifier = fmtFileSize + " - PROGRESS: {1,3}%";
 
             try
             {
+                double percentComplete = 0;
+                double previousPercentComplete = 0;
+
                 while (offset < fileSize)
                 {
                     DeviceBinaryStatusInformation = new TaskCompletionSource<(BinaryStatusObject binaryStatusObject, int VipaResponse)>();
 
-                    //NOTE! There is a weird 100ms delays between writes right now (even though device respond within 10ms) need to investigate why
+                    // NOTE! There is a weird 100ms delays between writes right now (even though device respond within 10ms) need to investigate why
                     byte d1 = (byte)(offset & 0xFF);
                     byte p2 = (byte)(((offset & 0xFF00) >> 8) & 0xFF);
                     byte p1 = (byte)((((offset & 0xFF0000) >> 16) & 0xFF) | 0x80);
 
-                    //Using 23 bit addressing to get data, (up to maximum of 255 bytes at a time, hence the loop)
+                    // Using 23 bit addressing to get data, (up to maximum of 255 bytes at a time, hence the loop)
                     SendVipaCommand(VIPACommandType.ReadBinary, p1, p2, new byte[] { d1 });
 
                     fileStatus = DeviceBinaryStatusInformation.Task.Result;
-                    ConsoleWriteLine($"BYTES LEFT TO WRITE: {fileSize - offset}");
+
+                    percentComplete = Math.Round((offset / fileSize), 2);
+
+                    if (previousPercentComplete != percentComplete)
+                    {
+                        string formattedString = string.Format(formatSpecifier, fileSize - offset, Math.Round(percentComplete * 100, 1));
+                        ConsoleWriteLine(formattedString);
+                        Debug.WriteLine(formattedString);
+                    }
+                    previousPercentComplete = percentComplete;
 
                     if (fileStatus.VipaResponse != (int)VipaSW1SW2Codes.Success)
                     {
@@ -1421,14 +1393,15 @@ namespace Devices.Verifone.VIPA
             }
             catch (Exception ex)
             {
-                Logger.error($"DUMP TERMINAL LOGS Exception: [{ex}].");
+                Debug.WriteLine($"DUMP TERMINAL LOGS Exception: [{ex}].");
+                DeviceLogger(LogLevel.Error, $"DUMP TERMINAL LOGS Exception: [{ex}].");
             }
 
-            ConsoleWriteLine($"BYTES LEFT TO WRITE: {fileSize - offset}");
+            //ConsoleWriteLine(string.Format(formatSpecifier, fileSize - offset, 100));
 
             SubscribeResponseTaglessHandler(GetBinaryDataResponseHandler, false);
 
-            return (resultBuffer, fileSize, DeviceBinaryStatusInformation.Task.Result.VipaResponse);
+            return (resultBuffer, (int)fileSize, DeviceBinaryStatusInformation.Task.Result.VipaResponse);
         }
 
         private int StartKeyboardReader()
@@ -1694,7 +1667,7 @@ namespace Devices.Verifone.VIPA
 
         private void GetDeviceInfoResponseHandler(List<TLV> tags, int responseCode, bool cancelled = false)
         {
-            if (cancelled)
+            if (cancelled || tags is null)
             {
                 DeviceIdentifier?.TrySetResult((null, responseCode));
                 return;
