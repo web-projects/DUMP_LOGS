@@ -403,6 +403,14 @@ namespace Devices.Verifone.VIPA
 
         #endregion --- Template Processing ---
 
+        private void ConsoleWrite(string output)
+        {
+            if (ExecutionMode == Modes.Execution.Console)
+            {
+                Console.Write(output);
+            }
+        }
+
         private void ConsoleWriteLine(string output)
         {
             if (ExecutionMode == Modes.Execution.Console)
@@ -688,21 +696,27 @@ namespace Devices.Verifone.VIPA
         {
             int vipaResponse = (int)VipaSW1SW2Codes.Success;
 
+            if (vipaResponse == (int)VipaSW1SW2Codes.Success)
+            {
+                vipaResponse = PutEmbeddedBundleResource(BinaryStatusObject.VIPA_BIN_DBG,
+                    BinaryStatusObject.VIPA_BIN_DBG_HASH, BinaryStatusObject.VIPA_BIN_DBG_SIZE);
+            }
+
             if (enableContact)
             {
-                vipaResponse = PushEmbeddedBundleResource(BinaryStatusObject.EMV_CT_LOG, 
+                vipaResponse = PutEmbeddedBundleResource(BinaryStatusObject.EMV_CT_LOG,
                     BinaryStatusObject.EMV_CT_LOG_HASH, BinaryStatusObject.EMV_CT_LOG_SIZE);
             }
 
             if (enableContactless)
             {
-                vipaResponse = PushEmbeddedBundleResource(BinaryStatusObject.EMV_CTLS_LOG, 
+                vipaResponse = PutEmbeddedBundleResource(BinaryStatusObject.EMV_CTLS_LOG,
                     BinaryStatusObject.EMV_CTLS_LOG_HASH, BinaryStatusObject.EMV_CTLS_LOG_SIZE);
             }
 
             if (vipaResponse == (int)VipaSW1SW2Codes.Success)
             {
-                vipaResponse = PushEmbeddedBundleResource(BinaryStatusObject.EMV_SYS_LOG, 
+                vipaResponse = PutEmbeddedBundleResource(BinaryStatusObject.EMV_SYS_LOG,
                     BinaryStatusObject.EMV_SYS_LOG_HASH, BinaryStatusObject.EMV_SYS_LOG_SIZE);
             }
 
@@ -1146,37 +1160,33 @@ namespace Devices.Verifone.VIPA
             return vipaResponse;
         }
 
-        private int PushEmbeddedBundleResource(string bundleName, string bundleHash, int bundleSize)
+        private int PutEmbeddedBundleResource(string bundleName, string bundleHash, int bundleSize)
         {
             (BinaryStatusObject binaryStatusObject, int VipaResponse) fileStatus = (null, (int)VipaSW1SW2Codes.Failure);
             string targetFile = Path.Combine(Constants.TargetDirectory, bundleName);
 
             if (FindEmbeddedResourceByName(bundleName, targetFile))
             {
-                ConsoleWriteLine($"ADK BUNDLE UPLOADED: {bundleName}");
-                Logger.info($"ADK BUNDLE UPLOADED: {bundleName}");
+                ConsoleWrite($"ADK BUNDLE UPLOADING: {bundleName} ...");
+                DeviceLogger(LogLevel.Info, $"ADK BUNDLE UPLOADING: {bundleName} ...");
 
                 fileStatus = PutFile(bundleName, targetFile);
                 if (fileStatus.VipaResponse == (int)VipaSW1SW2Codes.Success && fileStatus.binaryStatusObject != null)
                 {
-                    if (fileStatus.binaryStatusObject.FileSize == bundleSize)
-                    {
-                        ConsoleWriteLine($"VIPA: {bundleName} SIZE MATCH");
-                    }
-                    else
+                    if (fileStatus.binaryStatusObject.FileSize != bundleSize)
                     {
                         ConsoleWriteLine($"VIPA: {bundleName} SIZE MISMATCH!");
                     }
 
-                    if (fileStatus.binaryStatusObject.FileCheckSum.Equals(bundleHash, StringComparison.OrdinalIgnoreCase))
-                    {
-                        ConsoleWriteLine($"VIPA: {bundleName} HASH MATCH");
-                    }
-                    else
+                    if (!fileStatus.binaryStatusObject.FileCheckSum.Equals(bundleHash, StringComparison.OrdinalIgnoreCase))
                     {
                         ConsoleWriteLine($"VIPA: {bundleName} HASH MISMATCH!");
                     }
                 }
+
+                ConsoleWriteLine($" COMPLETED");
+                DeviceLogger(LogLevel.Info, $" COMPLETED");
+
                 // clean up
                 if (File.Exists(targetFile))
                 {

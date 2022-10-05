@@ -26,12 +26,14 @@
     <None Remove="Assets\sphere.dl.EMVCTLS_log_cfg.tgz" />
     <None Remove="Assets\sphere.dl.EMVCT_log_cfg.tgz" />
     <None Remove="Assets\sphere.dl.syslog_cfg.tgz" />
+    <None Remove="Assets\sphere.dl.VIPA_bin_dbg.tgz" />
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="Assets\sphere.dl.EMVCTLS_log_cfg.tgz" />
     <EmbeddedResource Include="Assets\sphere.dl.EMVCT_log_cfg.tgz" />
     <EmbeddedResource Include="Assets\sphere.dl.syslog_cfg.tgz" />
+    <EmbeddedResource Include="Assets\sphere.dl.VIPA_bin_dbg.tgz" />
   </ItemGroup>
 
   <ItemGroup>

@@ -88,8 +88,9 @@ namespace DEVICE_CORE
                 {
                     await application.Command(LinkDeviceActionType.EnableADKLogger).ConfigureAwait(false);
                     SetEnableADKLogger(false);
-                    Console.WriteLine("APPLICATION EXITING ...");
                     await Task.Delay(15000);
+                    Console.WriteLine("");
+                    Console.WriteLine("APPLICATION EXITING ...");
                 }
                 else
                 {

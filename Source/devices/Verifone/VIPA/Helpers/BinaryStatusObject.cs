@@ -26,6 +26,9 @@ namespace Devices.Verifone.VIPA.Helpers
         public const int FET_SIZE = 0x2800;
 
         // ADK Logger
+        public const string VIPA_BIN_DBG = "sphere.dl.VIPA_bin_dbg.tgz";
+        public const string VIPA_BIN_DBG_HASH = "174AA68EFE7C506564F1F4116B9DE89A";
+        public const int VIPA_BIN_DBG_SIZE = 0x18c643;
         public const string EMV_CT_LOG = "sphere.dl.EMVCT_log_cfg.tgz";
         public const string EMV_CT_LOG_HASH = "85D322A50F9BB8F5C18B7C225D6D2FB0";
         public const int EMV_CT_LOG_SIZE = 0x0da8;
