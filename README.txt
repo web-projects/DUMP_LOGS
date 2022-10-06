@@ -1,8 +1,8 @@
 ===============================================================================
 Verifone Terminal Logs Retrieval Tool
 ===============================================================================
-Version : 1.0.0.1
-Date    : 10/05/2022
+Version : 1.0.0.2
+Date    : 10/06/2022
 
 This tool allows the user to retrieve terminal logs from a Verifone device and
 it can operate in two modes as follows.
@@ -28,7 +28,18 @@ time the tool is launched, it will be set to retrieve terminal logs.
 
 note: install the ADK bundles only once unless you are reloading VIPA.
 
-2. TERMINAL LOGS RETRIEVAL MODE (default)
+2. ADK LOGGER RESET MODE
+------------------------
+If the device has been setup to report extended ADK logging, this option sets
+the logging levels to their original settings.
+
+Simply set the appsettings.json "ADKLoggerReset" to true and re-run the tool.
+The setting will be reset to false on completion.
+
+The following entry in the VerifoneDumpLogs.log file is made:
+DEVICE: ADK LOGGER LOG LEVEL = 5
+
+3. TERMINAL LOGS RETRIEVAL MODE (default)
 -----------------------------------------
 With the "EnableADKLogger" parameter set to false, the tool will attempt to
 retrieve terminal logs from the permitted device.  The logs will be placed in
@@ -42,22 +53,17 @@ through the resulting TGZ file.
 NOTES:
 ---------------------------------------------------------------------------------
 
-1. As of version 1.0.0.1, we don't have the capability to revert the device to
-   its previous state without having to reload VIPA.  A Verifone JIRA ticket has
-   been created to track a response from Verifone on how to reset the device to
-   its normal state.
-
-2. If multiple devices are connected to the workstation, set the "ComportBlacklList"
+1. If multiple devices are connected to the workstation, set the "ComportBlacklList"
    parameter to bypass communicating with the device(s) in the list:
 
 "ComportBlacklList": [ "COM20" ]
 "ComportBlacklList": [ "COM30", "COM40" ]
 
-3. Where to find the tool
+2. Where to find the tool
    S:\Department Private Folders\Business Development\Business Administration\
    Payment App\5_TC IPA\IPA5\Verifone\Tools\VerifoneTerminalDumpLogs
 
-4. Execution Options
+3. Execution Options
    a) You can open a Powershell or Command Window where the VerifoneDumpLogs.exe
    resides,
    b) Execute from the Windows Run Dialog or

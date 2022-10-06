@@ -110,5 +110,8 @@
         public static readonly uint HTMLKeyName = 0xDFAA02;
         public static readonly uint HTMLValueName = 0xDFAA03;
         public static readonly uint HTMLKeyPress = 0xDFAA05;
+
+        // Log level
+        public static readonly uint LoggerLogLevel = 0xDFAC02;
     }
 }

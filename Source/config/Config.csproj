@@ -21,6 +21,7 @@
 
  <ItemGroup>
    <ProjectReference Include="..\common\helpers\Helpers.csproj" />
+   <ProjectReference Include="..\common\LoggerManager\LoggerManager.csproj" />
    <ProjectReference Include="..\devices\common\Devices.Common.csproj" />
  </ItemGroup>
 

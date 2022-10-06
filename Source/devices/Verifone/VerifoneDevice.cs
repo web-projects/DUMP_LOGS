@@ -1,11 +1,10 @@
 ﻿using App.Helpers.EMVKernel;
-using Common.Config.Config;
-using Common.Constants;
 using Common.LoggerManager;
 using Common.XO.Device;
 using Common.XO.Private;
 using Common.XO.Requests;
 using Common.XO.Responses;
+using Config.Helpers;
 using Devices.Common;
 using Devices.Common.AppConfig;
 using Devices.Common.Config;
@@ -21,7 +20,6 @@ using Ninject;
 using System;
 using System.Collections.Generic;
 using System.Composition;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using static Devices.Common.Constants.LogMessage;
@@ -88,11 +86,7 @@ namespace Devices.Verifone
             //}
 
             // create dummy file to indicate task completion
-            string targetDummyFile = Path.Combine(Constants.TargetDirectory, Constants.TargetDummyFile);
-            if (!File.Exists(targetDummyFile))
-            {
-                File.Create(targetDummyFile);
-            }
+            FileCoordinator.DoWork(FileCoordinatorOps.DummyCreate);
 
             //string pendingDir = Path.Combine(logsDir, LogDirectories.PendingDirectory);
             //if (!Directory.Exists(pendingDir))
@@ -428,11 +422,20 @@ namespace Devices.Verifone
                         {
                             Console.WriteLine($"VIPA: restart with message{infoObject.LinkDeviceResponse.PowerOnNotification.TransactionStatusMessage}");
                         }
+
+                        (int LogLevel, int VipaResponse) logLevelResponse = VipaDevice.ADKLoggerGetLogLevel();
+                        if (logLevelResponse.VipaResponse == (int)VipaSW1SW2Codes.Success)
+                        {
+                            Console.WriteLine($"DEVICE: ADK LOGGER LOG LEVEL = {logLevelResponse.LogLevel}");
+                        }
                     }
                     else
                     {
                         Console.WriteLine(string.Format("DEVICE: FAILED ADK LOGGER RESET REQUEST WITH ERROR=0x{0:X4}\n", deviceResponse.VipaResponse));
                     }
+
+                    // delete dummy file to indicate task completion
+                    FileCoordinator.DoWork(FileCoordinatorOps.DummyDelete);
                 }
             }
 

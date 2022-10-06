@@ -2,6 +2,7 @@
 using Common.Execution;
 using Common.LoggerManager;
 using Common.XO.Requests;
+using Config.Helpers;
 using Execution;
 using Microsoft.Extensions.Configuration;
 using System;
@@ -51,8 +52,6 @@ namespace DEVICE_CORE
         //static private IConfiguration configuration;
         static private Config configuration;
 
-        static private string targetDummyFile;
-
         static async Task Main(string[] args)
         {
             SetupWindow();
@@ -88,46 +87,29 @@ namespace DEVICE_CORE
                 if (configuration.Devices.Verifone.EnableADKLogger)
                 {
                     await application.Command(LinkDeviceActionType.EnableADKLogger).ConfigureAwait(false);
-                    await Task.Delay(3000);
-
-                    while (File.Exists(targetDummyFile))
-                    {
-                        await Task.Delay(1000);
-                    }
 
                     SetEnableADKLogger(false);
-
-                    Console.WriteLine("\r\n");
-                }
+               }
                 else if (configuration.Devices.Verifone.ADKLoggerReset)
                 {
                     await application.Command(LinkDeviceActionType.ADKLoggerReset).ConfigureAwait(false);
 
-                    while (File.Exists(targetDummyFile))
-                    {
-                        await Task.Delay(1000);
-                    }
-
                     SetADKLoggerReset(false);
-
-                    Console.WriteLine("\r\n");
                 }
                 else
                 {
                     // DUMP LOGS
                     await application.Command(LinkDeviceActionType.GetTerminalLogs).ConfigureAwait(false);
-                    await Task.Delay(3000);
-
-                    while (File.Exists(targetDummyFile))
-                    {
-                        await Task.Delay(1000);
-                    }
-                    Console.WriteLine();
-                    await Task.Delay(2000);
 
                     // IDLE SCREEN
                     //await application.Command(LinkDeviceActionType.DisplayIdleScreen).ConfigureAwait(false);
                 }
+            }
+
+            // wait for dummy file to be deleted
+            while (FileCoordinator.DoWork(FileCoordinatorOps.DummyExists))
+            {
+                await Task.Delay(1000);
             }
 
             applicationIsExiting = true;
@@ -137,7 +119,8 @@ namespace DEVICE_CORE
             // delete working directory
             DeleteWorkingDirectory(di);
 
-            Console.WriteLine("Press <ENTER> key to exit...");
+            Console.WriteLine("\r\n\r\nPress <ENTER> key to exit...");
+#if !DEBUG
             ConsoleKeyInfo keypressed = Console.ReadKey(true);
 
             while (keypressed.Key != ConsoleKey.Enter)
@@ -145,6 +128,7 @@ namespace DEVICE_CORE
                 keypressed = Console.ReadKey(true);
                 Thread.Sleep(100);
             }
+#endif
 
             Console.WriteLine("APPLICATION EXITING ...");
             Console.WriteLine("");
@@ -159,10 +143,6 @@ namespace DEVICE_CORE
             {
                 di = Directory.CreateDirectory(Constants.TargetDirectory);
             }
-
-
-            // create dummy file to indicate task completion when deleted
-            targetDummyFile = Path.Combine(Constants.TargetDirectory, Constants.TargetDummyFile);
 
             try
             {

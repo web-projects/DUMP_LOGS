@@ -44,13 +44,6 @@ namespace Devices.Core.State.SubWorkflows.Actions
                     ICardDevice cardDevice = FindTargetDevice(deviceIdentifier);
                     if (cardDevice != null)
                     {
-                        if (Controller.Configuration.ComPortBlackList.Where(x => x.Equals(cardDevice.DeviceInformation.ComPort, StringComparison.OrdinalIgnoreCase)).Count() > 0)
-                        {
-                            Logger.warning($"{cardDevice.DeviceInformation.ComPort} BLACKLISTED: device discovery will not be performed.");
-                            Console.WriteLine($"{cardDevice.DeviceInformation.ComPort} BLACKLISTED: device discovery will not be performed.");
-                            continue;
-                        }
-
                         CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
                         var timeoutPolicy = await cancellationBroker.ExecuteWithTimeoutAsync<LinkActionRequest>(
                             _ => cardDevice.GetTerminalLogs(linkActionRequest),

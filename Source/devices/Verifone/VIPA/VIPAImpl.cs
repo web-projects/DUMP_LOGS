@@ -4,6 +4,7 @@ using Common.LoggerManager;
 using Common.XO.Device;
 using Common.XO.Private;
 using Common.XO.Responses;
+using Config.Helpers;
 using Devices.Common;
 using Devices.Common.AppConfig;
 using Devices.Common.Config;
@@ -129,6 +130,8 @@ namespace Devices.Verifone.VIPA
         public TaskCompletionSource<(string Timestamp, int VipaResponse)> Reboot24HourInformation = null;
 
         public TaskCompletionSource<(string Timestamp, int VipaResponse)> TerminalDateTimeInformation = null;
+
+        public TaskCompletionSource<(int LogLevel, int VipaResponse)> LoggerLevelInformation = null;
 
         // EMV Workflow
         public TaskCompletionSource<(LinkDALRequestIPA5Object linkDALRequestIPA5Object, int VipaResponse)> DecisionRequiredInformation = null;
@@ -552,6 +555,23 @@ namespace Devices.Verifone.VIPA
             return deviceBinaryStatus;
         }
 
+        internal (int LogLevel, int VipaResponse) LogConfigurationLevel()
+        {
+            LoggerLevelInformation = new TaskCompletionSource<(int LogLevel, int VipaResponse)>();
+
+            SubscribeResponseTagsHandler(GetLoggerLevelHandler, true);
+
+            // LOG CONFIGURATION [D0, 64]
+            Debug.WriteLine(ConsoleMessages.LogConfiguration.GetStringValue());
+            SendVipaCommand(VIPACommandType.LogConfiguration, 0xFF, 0x00);
+
+            var deviceResponse = LoggerLevelInformation.Task.Result;
+
+            SubscribeResponseTagsHandler(GetLoggerLevelHandler, true);
+
+            return deviceResponse;
+        }
+
         internal (DeviceInfoObject deviceInfoObject, int VipaResponse) LogConfigurationReset()
         {
             DeviceIdentifier = new TaskCompletionSource<(DeviceInfoObject deviceInfoObject, int VipaResponse)>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -784,41 +804,21 @@ namespace Devices.Verifone.VIPA
             }
 
             // delete dummy file to indicate task completion
-            string targetDummyFile = Path.Combine(Constants.TargetDirectory, Constants.TargetDummyFile);
-            if (File.Exists(targetDummyFile))
-            {
-                try
-                {
-                    File.Delete(targetDummyFile);
-                }
-                catch (Exception ex)
-                {
-                    DeviceLogger(LogLevel.Error, $"File Write Exception: [{ex}].");
-                }
-
-            }
+            FileCoordinator.DoWork(FileCoordinatorOps.DummyDelete);
 
             return vipaResponse;
+        }
+
+        public (int LogLevel, int VipaResponse) ADKLoggerGetLogLevel()
+        {
+            (int LogLevel, int VipaResponse) logLevelResponse = LogConfigurationLevel();
+            DeviceLogger(LogLevel.Info, $"DEVICE: ADK LOGGER LOG LEVEL = {logLevelResponse.LogLevel}");
+            return logLevelResponse;
         }
 
         public (DeviceInfoObject deviceInfoObject, int VipaResponse) ADKLoggerReset()
         {
             (DeviceInfoObject deviceInfoObject, int VipaResponse) deviceResponse = LogConfigurationReset();
-
-            // delete dummy file to indicate task completion
-            string targetDummyFile = Path.Combine(Constants.TargetDirectory, Constants.TargetDummyFile);
-            if (File.Exists(targetDummyFile))
-            {
-                try
-                {
-                    File.Delete(targetDummyFile);
-                }
-                catch (Exception ex)
-                {
-                    DeviceLogger(LogLevel.Error, $"File Write Exception: [{ex}].");
-                }
-            }
-
             return deviceResponse;
         }
 
@@ -867,18 +867,7 @@ namespace Devices.Verifone.VIPA
                 }
 
                 // delete dummy file to indicate task completion
-                string targetDummyFile = Path.Combine(Constants.TargetDirectory, Constants.TargetDummyFile);
-                if (File.Exists(targetDummyFile))
-                {
-                    try
-                    {
-                        File.Delete(targetDummyFile);
-                    }
-                    catch (Exception ex)
-                    {
-                        DeviceLogger(LogLevel.Error, $"File Write Exception: [{ex}].");
-                    }
-                }
+                FileCoordinator.DoWork(FileCoordinatorOps.DummyDelete);
 
                 // Release ArrayPool
                 ArrayPool<byte>.Shared.Return(fileData.FileByteBuffer);
@@ -2451,6 +2440,35 @@ namespace Devices.Verifone.VIPA
                 // log error responses for device troubleshooting purposes
                 DeviceLogger(LogLevel.Error, string.Format("VIPA STATUS CODE=0x{0:X4}", responseCode));
             }
+        }
+
+        public void GetLoggerLevelHandler(List<TLV> tags, int responseCode, bool cancelled = false)
+        {
+            if (cancelled || tags == null)
+            {
+                LoggerLevelInformation?.TrySetResult((0x00, responseCode));
+                return;
+            }
+
+            int deviceResponse = 0xFF;
+
+            foreach (var tag in tags)
+            {
+                if (tag.Tag == E0Template.E0TemplateTag)
+                {
+                    foreach (var dataTag in tag.InnerTags)
+                    {
+                        if (dataTag.Tag == E0Template.LoggerLogLevel)
+                        {
+                            deviceResponse = dataTag.Data[0];
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // command must always be processed
+            LoggerLevelInformation?.TrySetResult((deviceResponse, responseCode));
         }
 
         private void SubscribeResponseCLessTagHandler(ResponseCLessHandlerDelegate handler, bool subscribe)
