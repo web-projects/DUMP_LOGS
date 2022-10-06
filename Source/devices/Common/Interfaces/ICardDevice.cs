@@ -50,6 +50,8 @@ namespace Devices.Common.Interfaces
 
         LinkActionRequest EnableADKLogger(LinkActionRequest linkActionRequest);
 
+        LinkActionRequest ADKLoggerReset(LinkActionRequest linkActionRequest);
+
         LinkActionRequest GetTerminalLogs(LinkActionRequest linkActionRequest);
 
         LinkActionRequest ReportVipaVersions(LinkActionRequest linkActionRequest);

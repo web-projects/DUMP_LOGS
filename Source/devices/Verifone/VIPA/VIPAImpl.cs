@@ -268,6 +268,30 @@ namespace Devices.Verifone.VIPA
         #region --- VIPA commands ---
 
         #region --- Utilities ---
+        public byte IntToBCDByte(int numericValue)
+        {
+            return BCDConversion.IntToBCDByte(numericValue);
+        }
+
+        public byte[] IntToBCD(int numericValue, int byteSize = 6)
+        {
+            return BCDConversion.IntToBCD(numericValue, byteSize);
+        }
+
+        public int BCDToInt(byte[] bcd)
+        {
+            return BCDConversion.BCDToInt(bcd);
+        }
+
+        private byte[] GetValueBytes(int value)
+        {
+            byte[] valueAsBytes = BCDConversion.IntToBCD(value);
+            Array.Reverse(valueAsBytes);
+            byte[] valueBytes = valueAsBytes.TakeLast(6).ToArray();
+            ArrayPool<byte>.Shared.Return(valueAsBytes, true);     // Clean up pool allocation, clearing the array
+            return valueBytes;
+        }
+
         private void DeviceLogger(LogLevel logLevel, string message) =>
             DeviceLogHandler?.Invoke(logLevel, $"{StringValueAttribute.GetStringValue(DeviceType.Verifone)}[{DeviceInformation?.Model}, {DeviceInformation?.SerialNumber}, {DeviceInformation?.ComPort}]: {{{message}}}");
         #endregion --- Utilities ---
@@ -528,6 +552,44 @@ namespace Devices.Verifone.VIPA
             return deviceBinaryStatus;
         }
 
+        internal (DeviceInfoObject deviceInfoObject, int VipaResponse) LogConfigurationReset()
+        {
+            DeviceIdentifier = new TaskCompletionSource<(DeviceInfoObject deviceInfoObject, int VipaResponse)>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            SubscribeResponseTagsHandler(GetDeviceInfoResponseHandler, true);
+
+            byte P1 = Convert.ToByte(BinaryStatusObject.LogLevel, 16);
+
+            TLV dataForLogConfiguration = new TLV
+            {
+                Tag = E0Template.E0TemplateTag,
+                InnerTags = new List<TLV>
+                {
+                    new TLV(E0Template.HTMLKeyName, Encoding.ASCII.GetBytes("LOG_LEVEL")),
+                    new TLV(E0Template.HTMLValueName, Encoding.ASCII.GetBytes(BinaryStatusObject.LogLevel)),
+                    new TLV(E0Template.HTMLKeyName, Encoding.ASCII.GetBytes("NUMBER_OF_FILES")),
+                    new TLV(E0Template.HTMLValueName, Encoding.ASCII.GetBytes(BinaryStatusObject.NumberOfFiles)),
+                    new TLV(E0Template.HTMLKeyName, Encoding.ASCII.GetBytes("MAX_LOGFILE_SIZE")),
+                    new TLV(E0Template.HTMLValueName, Encoding.ASCII.GetBytes(BinaryStatusObject.MaxLogFileSize))
+                }
+            };
+
+            byte[] dataForLogConfigurationData = TLV.Encode(dataForLogConfiguration);
+
+            // LOG CONFIGURATION [D0, 64]
+            Debug.WriteLine(ConsoleMessages.LogConfiguration.GetStringValue());
+            SendVipaCommand(VIPACommandType.LogConfiguration, P1, 0x00, dataForLogConfigurationData);
+
+            // If the new log level was set successfully, VIPA is restarted. The response is the same as for
+            // Reset Device command[D0, 00] with P1 = 02(VIPA restart).
+            // If the new log level in P1 is the same as the current log level, SW1SW2 = 9000(success).
+            var deviceResponse = DeviceIdentifier.Task.Result;
+
+            SubscribeResponseTagsHandler(GetDeviceInfoResponseHandler, false);
+
+            return deviceResponse;
+        }
+
         public (DeviceInfoObject deviceInfoObject, int VipaResponse) VIPARestart()
         {
             (DeviceInfoObject deviceInfoObject, int VipaResponse) deviceResponse = (null, (int)VipaSW1SW2Codes.Failure);
@@ -543,8 +605,9 @@ namespace Devices.Verifone.VIPA
                 ResponseTagsHandler += GetDeviceInfoResponseHandler;
 
                 // VIPA restart with beep
+                byte p1 = 0x02;
                 byte p2 = (byte)(ResetDeviceCfg.ReturnSerialNumber);
-                SendVipaCommand(VIPACommandType.ResetDevice, 0x02, p2);
+                SendVipaCommand(VIPACommandType.ResetDevice, p1, p2);
 
                 deviceResponse = GetDeviceResponse(DefaultDeviceResultTimeoutMS);
 
@@ -724,10 +787,39 @@ namespace Devices.Verifone.VIPA
             string targetDummyFile = Path.Combine(Constants.TargetDirectory, Constants.TargetDummyFile);
             if (File.Exists(targetDummyFile))
             {
-                File.Delete(targetDummyFile);
+                try
+                {
+                    File.Delete(targetDummyFile);
+                }
+                catch (Exception ex)
+                {
+                    DeviceLogger(LogLevel.Error, $"File Write Exception: [{ex}].");
+                }
+
             }
 
             return vipaResponse;
+        }
+
+        public (DeviceInfoObject deviceInfoObject, int VipaResponse) ADKLoggerReset()
+        {
+            (DeviceInfoObject deviceInfoObject, int VipaResponse) deviceResponse = LogConfigurationReset();
+
+            // delete dummy file to indicate task completion
+            string targetDummyFile = Path.Combine(Constants.TargetDirectory, Constants.TargetDummyFile);
+            if (File.Exists(targetDummyFile))
+            {
+                try
+                {
+                    File.Delete(targetDummyFile);
+                }
+                catch (Exception ex)
+                {
+                    DeviceLogger(LogLevel.Error, $"File Write Exception: [{ex}].");
+                }
+            }
+
+            return deviceResponse;
         }
 
         public (BinaryStatusObject deviceInfoObject, int VipaResponse) DeviceDumpTerminalLogs()
@@ -778,7 +870,14 @@ namespace Devices.Verifone.VIPA
                 string targetDummyFile = Path.Combine(Constants.TargetDirectory, Constants.TargetDummyFile);
                 if (File.Exists(targetDummyFile))
                 {
-                    File.Delete(targetDummyFile);
+                    try
+                    {
+                        File.Delete(targetDummyFile);
+                    }
+                    catch (Exception ex)
+                    {
+                        DeviceLogger(LogLevel.Error, $"File Write Exception: [{ex}].");
+                    }
                 }
 
                 // Release ArrayPool
@@ -1687,6 +1786,8 @@ namespace Devices.Verifone.VIPA
 
         private void GetDeviceInfoResponseHandler(List<TLV> tags, int responseCode, bool cancelled = false)
         {
+            Debug.WriteLine(string.Format("VIPA: GetDeviceInfoResponseHandler with responseCode=0x{0:X4}", responseCode));
+
             if (cancelled || tags is null)
             {
                 DeviceIdentifier?.TrySetResult((null, responseCode));
@@ -1785,10 +1886,10 @@ namespace Devices.Verifone.VIPA
 
                     DeviceIdentifier?.TrySetResult((deviceInfoObject, responseCode));
                 }
-                //else
-                //{
-                //    deviceIdentifier?.TrySetResult((null, responseCode));
-                //}
+                else
+                {
+                    DeviceIdentifier?.TrySetResult((null, responseCode));
+                }
             }
         }
 

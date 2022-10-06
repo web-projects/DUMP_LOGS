@@ -20,6 +20,13 @@ namespace Devices.Core.State.SubWorkflows
             false => SanityCheck
         };
 
+        private static DeviceSubWorkflowState ComputeADKLoggerResetStateTransition(bool exception) =>
+        exception switch
+        {
+            true => SanityCheck,
+            false => SanityCheck
+        };
+
         private static DeviceSubWorkflowState ComputeGetTerminalLogsStateTransition(bool exception) =>
         exception switch
         {
@@ -53,6 +60,7 @@ namespace Devices.Core.State.SubWorkflows
             {
                 DisplayIdleScreen => ComputeDisplayIdleScreenStateTransition(exception),
                 EnableADKLogger => ComputeEnableADKLoggerStateTransition(exception),
+                ADKLoggerReset => ComputeADKLoggerResetStateTransition(exception),
                 GetTerminalLogs => ComputeGetTerminalLogsStateTransition(exception),
                 ReportVIPAVersions => ComputeReportVipaVersionsStateTransition(exception),
                 SanityCheck => ComputeSanityCheckStateTransition(exception),

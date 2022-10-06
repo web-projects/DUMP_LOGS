@@ -15,6 +15,7 @@ namespace Common.XO.Requests
     {
         DisplayIdleScreen,
         EnableADKLogger,
+        ADKLoggerReset,
         GetTerminalLogs,
         ReportVipaVersions
     }

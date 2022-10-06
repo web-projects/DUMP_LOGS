@@ -19,6 +19,7 @@ namespace Devices.Core.State.SubWorkflows.Providers
             {
                 LinkDeviceActionType.DisplayIdleScreen => DeviceSubWorkflowState.DisplayIdleScreen,
                 LinkDeviceActionType.EnableADKLogger => DeviceSubWorkflowState.EnableADKLogger,
+                LinkDeviceActionType.ADKLoggerReset => DeviceSubWorkflowState.ADKLoggerReset,
                 LinkDeviceActionType.GetTerminalLogs => DeviceSubWorkflowState.GetTerminalLogs,
                 LinkDeviceActionType.ReportVipaVersions => DeviceSubWorkflowState.ReportVIPAVersions,
                 _ => DeviceSubWorkflowState.Undefined

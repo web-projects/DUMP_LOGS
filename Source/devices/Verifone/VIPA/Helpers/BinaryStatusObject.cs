@@ -39,6 +39,10 @@ namespace Devices.Verifone.VIPA.Helpers
         public const string EMV_SYS_LOG_HASH = "91F9BAD78C9390A02FCE80D94D27D6D0";
         public const int EMV_SYS_LOG_SIZE = 0x0dae;
 
+        public const string LogLevel = "05";
+        public const string NumberOfFiles = "2";
+        public const string MaxLogFileSize = "200";
+
         //public const string UNLOCK_CONFIG_BUNDLE = "dl.bundle.Sphere_UpdKeyCmd_Enable.tar";
         //public const string UNLOCK_CONFIG_HASH = "F466919BDBCF22DBF9DAD61C1E173F61";
         //public const int UNLOCK_CONFIG_SIZE = 0x5000;

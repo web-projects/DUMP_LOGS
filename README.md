@@ -39,3 +39,4 @@ This an application for retrieve terminal logs from Verifone Devices.
 * 20220930 - Initial repository.
 * 20221002 - Added COMPORT Black Listing.
 * 20221003 - Presentation clean up.
+* 20221005 - Implemented ADK Log Reset.

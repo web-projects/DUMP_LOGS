@@ -20,6 +20,7 @@ namespace Common.XO.Requests.DAL
     public enum LinkDALActionType
     {
         EnableADKLogger,
+        ADKLoggerReset,
         GetTerminalLogs,
         ReportVipaVersions,
         SetDeviceIdle

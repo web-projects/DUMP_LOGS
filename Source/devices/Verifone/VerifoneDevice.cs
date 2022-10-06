@@ -403,6 +403,44 @@ namespace Devices.Verifone
             return linkActionRequest;
         }
 
+        public LinkActionRequest ADKLoggerReset(LinkActionRequest linkActionRequest)
+        {
+            Console.WriteLine($"DEVICE[{DeviceInformation.ComPort}]: ADK LOGGER RESET for SN='{linkActionRequest?.DeviceRequest?.DeviceIdentifier?.SerialNumber}'");
+
+            if (VipaDevice != null)
+            {
+                if (!IsConnected)
+                {
+                    VipaDevice.Dispose();
+                    VerifoneConnection = new VerifoneConnection();
+                    IsConnected = VipaDevice.Connect(VerifoneConnection, DeviceInformation);
+                }
+
+                if (IsConnected)
+                {
+                    // Reset ADK Logger
+                    (DeviceInfoObject deviceInfoObject, int VipaResponse) deviceResponse = VipaDevice.ADKLoggerReset();
+
+                    if (deviceResponse.VipaResponse == (int)VipaSW1SW2Codes.Success)
+                    {
+                        Console.WriteLine($"DEVICE: ADK LOGGER RESET SUCCESSFULLY");
+                        if (deviceResponse.deviceInfoObject is { } infoObject)
+                        {
+                            Console.WriteLine($"VIPA: restart with message{infoObject.LinkDeviceResponse.PowerOnNotification.TransactionStatusMessage}");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine(string.Format("DEVICE: FAILED ADK LOGGER RESET REQUEST WITH ERROR=0x{0:X4}\n", deviceResponse.VipaResponse));
+                    }
+                }
+            }
+
+            DeviceSetIdle();
+
+            return linkActionRequest;
+        }
+
         public LinkActionRequest GetTerminalLogs(LinkActionRequest linkActionRequest)
         {
             Console.WriteLine($"DEVICE[{DeviceInformation.ComPort}]: DUMP TERMINAL LOGS for SN='{linkActionRequest?.DeviceRequest?.DeviceIdentifier?.SerialNumber}'");

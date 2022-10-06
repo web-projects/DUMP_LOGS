@@ -25,6 +25,11 @@ namespace Devices.Core.State.Enums
         EnableADKLogger,
 
         /// <summary>
+        /// Represents a state when DAL resets the device extended logging to default
+        /// </summary>
+        ADKLoggerReset,
+
+        /// <summary>
         /// Represents a state when DAL queries the device for Terminal Logs to retrieve
         /// </summary>
         GetTerminalLogs,

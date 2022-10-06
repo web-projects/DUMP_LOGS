@@ -16,6 +16,7 @@ namespace Devices.Core.State.SubWorkflows.Actions.Controllers
                 {
                     [DisplayIdleScreen] = (IDeviceSubStateController _) => new DeviceDisplayIdleScreenSubStateAction(_),
                     [EnableADKLogger] = (IDeviceSubStateController _) => new DeviceEnableADKLoggerSubStateAction(_),
+                    [ADKLoggerReset] = (IDeviceSubStateController _) => new DeviceADKLoggerResetSubStateAction(_),
                     [GetTerminalLogs] = (IDeviceSubStateController _) => new DeviceGetTerminalLogsSubStateAction(_),
                     [ReportVIPAVersions] = (IDeviceSubStateController _) => new DeviceReportVipaVersionsSubStateAction(_),
                     [SanityCheck] = (IDeviceSubStateController _) => new DeviceSanityCheckSubStateAction(_),

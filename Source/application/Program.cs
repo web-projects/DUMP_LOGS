@@ -12,6 +12,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace DEVICE_CORE
@@ -87,6 +88,7 @@ namespace DEVICE_CORE
                 if (configuration.Devices.Verifone.EnableADKLogger)
                 {
                     await application.Command(LinkDeviceActionType.EnableADKLogger).ConfigureAwait(false);
+                    await Task.Delay(3000);
 
                     while (File.Exists(targetDummyFile))
                     {
@@ -96,13 +98,25 @@ namespace DEVICE_CORE
                     SetEnableADKLogger(false);
 
                     Console.WriteLine("\r\n");
-                    Console.WriteLine("APPLICATION EXITING ...");
-                    Console.WriteLine("");
+                }
+                else if (configuration.Devices.Verifone.ADKLoggerReset)
+                {
+                    await application.Command(LinkDeviceActionType.ADKLoggerReset).ConfigureAwait(false);
+
+                    while (File.Exists(targetDummyFile))
+                    {
+                        await Task.Delay(1000);
+                    }
+
+                    SetADKLoggerReset(false);
+
+                    Console.WriteLine("\r\n");
                 }
                 else
                 {
                     // DUMP LOGS
                     await application.Command(LinkDeviceActionType.GetTerminalLogs).ConfigureAwait(false);
+                    await Task.Delay(3000);
 
                     while (File.Exists(targetDummyFile))
                     {
@@ -122,6 +136,18 @@ namespace DEVICE_CORE
 
             // delete working directory
             DeleteWorkingDirectory(di);
+
+            Console.WriteLine("Press <ENTER> key to exit...");
+            ConsoleKeyInfo keypressed = Console.ReadKey(true);
+
+            while (keypressed.Key != ConsoleKey.Enter)
+            {
+                keypressed = Console.ReadKey(true);
+                Thread.Sleep(100);
+            }
+
+            Console.WriteLine("APPLICATION EXITING ...");
+            Console.WriteLine("");
         }
 
         static private DirectoryInfo SetupEnvironment()
@@ -138,14 +164,21 @@ namespace DEVICE_CORE
             // create dummy file to indicate task completion when deleted
             targetDummyFile = Path.Combine(Constants.TargetDirectory, Constants.TargetDummyFile);
 
-            // Get appsettings.json config - AddEnvironmentVariables() requires package: Microsoft.Extensions.Configuration.EnvironmentVariables
-            //configuration = (IConfiguration)new ConfigurationBuilder()
-            configuration = new ConfigurationBuilder()
-                .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
-                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-                .AddEnvironmentVariables()
-                .Build()
-                .Get<Config>();
+            try
+            {
+                // Get appsettings.json config - AddEnvironmentVariables() requires package: Microsoft.Extensions.Configuration.EnvironmentVariables
+                //configuration = (IConfiguration)new ConfigurationBuilder()
+                configuration = new ConfigurationBuilder()
+                    .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
+                    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                    .AddEnvironmentVariables()
+                    .Build()
+                    .Get<Config>();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Application Exception: [{ex}].");
+            }
 
             // logger manager
             SetLogging();
@@ -256,6 +289,12 @@ namespace DEVICE_CORE
         static void SetEnableADKLogger(bool mode)
         {
             configuration.Devices.Verifone.EnableADKLogger = mode;
+            AppSettingsUpdate();
+        }
+
+        static void SetADKLoggerReset(bool mode)
+        {
+            configuration.Devices.Verifone.ADKLoggerReset = mode;
             AppSettingsUpdate();
         }
 

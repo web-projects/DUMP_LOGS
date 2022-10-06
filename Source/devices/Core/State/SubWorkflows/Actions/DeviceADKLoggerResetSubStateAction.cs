@@ -11,11 +11,11 @@ using static Devices.Core.State.Enums.DeviceSubWorkflowState;
 
 namespace Devices.Core.State.SubWorkflows.Actions
 {
-    internal class DeviceEnableADKLoggerSubStateAction : DeviceBaseSubStateAction
+    internal class DeviceADKLoggerResetSubStateAction : DeviceBaseSubStateAction
     {
-        public override DeviceSubWorkflowState WorkflowStateType => EnableADKLogger;
+        public override DeviceSubWorkflowState WorkflowStateType => ADKLoggerReset;
 
-        public DeviceEnableADKLoggerSubStateAction(IDeviceSubStateController _) : base(_) { }
+        public DeviceADKLoggerResetSubStateAction(IDeviceSubStateController _) : base(_) { }
 
         public override SubStateActionLaunchRules LaunchRules => new SubStateActionLaunchRules
         {
@@ -26,8 +26,8 @@ namespace Devices.Core.State.SubWorkflows.Actions
         {
             if (StateObject is null)
             {
-                //_ = Controller.LoggingClient.LogErrorAsync("Unable to find a state object while attempting to enable ADK logger.");
-                Console.WriteLine("Unable to find a state object while attempting to enable ADK logger.");
+                //_ = Controller.LoggingClient.LogErrorAsync("Unable to find a state object while attempting to reset ADK logger.");
+                Console.WriteLine("Unable to find a state object while attempting to reset ADK logger.");
                 _ = Error(this);
             }
             else
@@ -44,14 +44,14 @@ namespace Devices.Core.State.SubWorkflows.Actions
                     {
                         CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
                         var timeoutPolicy = await cancellationBroker.ExecuteWithTimeoutAsync<LinkActionRequest>(
-                            _ => cardDevice.EnableADKLogger(linkActionRequest),
+                            _ => cardDevice.ADKLoggerReset(linkActionRequest),
                             DeviceConstants.ADKEnableDebugTimeout,
                             cancellationTokenSource.Token);
 
                         if (timeoutPolicy.Outcome == Polly.OutcomeType.Failure)
                         {
-                            //_ = Controller.LoggingClient.LogErrorAsync($"Unable to process ENABLE ADK LOGGER request from device - '{Controller.DeviceEvent}'.");
-                            Console.WriteLine($"Unable to process ENABLE ADK LOGGER request from device - '{Controller.DeviceEvent}'.");
+                            //_ = Controller.LoggingClient.LogErrorAsync($"Unable to process ADK LOGGER RESET request from device - '{Controller.DeviceEvent}'.");
+                            Console.WriteLine($"Unable to process ADK LOGGER RESET request from device - '{Controller.DeviceEvent}'.");
                             BuildSubworkflowErrorResponse(linkRequest, cardDevice.DeviceInformation, Controller.DeviceEvent);
                         }
                     }
