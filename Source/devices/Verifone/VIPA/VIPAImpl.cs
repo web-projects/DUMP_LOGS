@@ -8,6 +8,7 @@ using Config.Helpers;
 using Devices.Common;
 using Devices.Common.AppConfig;
 using Devices.Common.Config;
+using Devices.Common.DebugDump;
 using Devices.Common.Helpers;
 using Devices.Common.Helpers.Templates;
 using Devices.Verifone.Connection;
@@ -544,8 +545,13 @@ namespace Devices.Verifone.VIPA
             ResponseTagsHandlerSubscribed++;
             ResponseTagsHandler += GetDumpLogsResponseHandler;
 
+            // P1
+            // 00 - delete all existing logs
+            // 01 - do not delete existing logs
+            byte p1 = 0x00;
+
             Debug.WriteLine(ConsoleMessages.AbortCommand.GetStringValue());
-            SendVipaCommand(VIPACommandType.DumpLogs, 0x00, (byte)DumpLogType.OSLog);
+            SendVipaCommand(VIPACommandType.DumpLogs, p1, (byte)DumpLogType.OSLog);
 
             var deviceBinaryStatus = DeviceBinaryStatusInformation.Task.Result;
 
@@ -831,7 +837,8 @@ namespace Devices.Verifone.VIPA
 
             // vvv FOR DEBUGGING ONLY vvv
             //(BinaryStatusObject binaryStatusObject, int VipaResponse) deviceBinaryStatus = (new BinaryStatusObject(), (int)VipaSW1SW2Codes.Success);
-            //deviceBinaryStatus.binaryStatusObject.FileName = "logs/275-437-650_221004_170307.tgz";
+            //deviceBinaryStatus.binaryStatusObject.FileName = "logs/987-296-740_221010_150120.tgz";
+            //DebugDump.SetDestination(deviceBinaryStatus.binaryStatusObject.FileName);
             // PROGRESS % DEBUGGING
             //deviceBinaryStatus.binaryStatusObject.FileName = "contlemv.cfg";
             // ^^^ FOR DEBUGGING ONLY ^^^

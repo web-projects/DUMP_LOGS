@@ -1,4 +1,5 @@
 ﻿using Devices.Common;
+using Devices.Common.DebugDump;
 using Devices.Verifone.Connection.Interfaces;
 using Devices.Verifone.VIPA;
 using System;
@@ -32,11 +33,9 @@ namespace Devices.Verifone.Connection
         // includes the Lc and data field (if present) bytes, and includes the Le byte (if present),
         // includes the SW1-SW2 bytes for responses, but excludes the LRC byte.
         private const int rawReadSizeBytes = packetTxHeaderLength + 0xFB; // 0xFF
-        //private const int unchainedResponseMessageSize = packetRxHeaderLength + 0xFB; // 0xFF
-        private const int unchainedResponseMessageSize = 1024;
+        private const int unchainedResponseMessageSize = rawReadSizeBytes * 4;
 
         private const int chainedResponseMessageSize = unchainedResponseMessageSize * 10;
-        private const int portReadIdleDelayMs = 10;
         private const int chainedCommandMinimumLength = 0xFE;
         private const int chainedCommandPayloadLength = 0xF8;
 
@@ -50,6 +49,10 @@ namespace Devices.Verifone.Connection
         private ArrayPool<byte> arrayPool { get; set; }
         private readonly object readerThreadLock = new object();
         private readonly object portWriteLock = new object();
+
+        // this parameter needs to be adjusted as needed and taking into consideration that Engage devices
+        // have a faster processor than UX devices.
+        private const int portReadIdleDelayMs = 50;
 
         private bool IsChainedMessageResponse { get; set; }
 
@@ -178,7 +181,6 @@ namespace Devices.Verifone.Connection
         }
 
         private bool IsChainedResponseCommand(VIPACommand command) =>
-            ((VIPACommandType)(command.cla << 8 | command.ins) == VIPACommandType.DumpLogs) ||
             ((VIPACommandType)(command.cla << 8 | command.ins) == VIPACommandType.ResetDevice) ||
             ((VIPACommandType)(command.cla << 8 | command.ins) == VIPACommandType.DisplayHTML && command.data != null &&
               Encoding.UTF8.GetString(command.data).IndexOf(VIPACommand.ChainedResponseAnswerData, StringComparison.OrdinalIgnoreCase) >= 0);
@@ -299,9 +301,11 @@ namespace Devices.Verifone.Connection
 
                             int readLength = serialPort.Read(buffer, 0, buffer.Length);
                             Debug.WriteLineIf(LogSerialBytes, string.Format("VIPA-READ [{0}](0x{1:X2}) : {2}", serialPort?.PortName, readLength, BitConverter.ToString(buffer, 0, readLength)));
+                            //await DebugDump.LoggerWriter(string.Format("VIPA-READ [{0}](0x{1:X2}) : {2}", serialPort?.PortName, readLength, BitConverter.ToString(buffer, 0, readLength)));
 
                             // examine response for possible chained message response
-                            firstPacket = ProcessChainedMessageResponseIfAppropriate(firstPacket, ref buffer, readLength, ref moreData, ref parseBytes);
+                            firstPacket = ProcessChainedMessageResponseIfAppropriate(firstPacket, ref buffer, readLength,
+                                ref moreData, ref parseBytes);
 
                             // assemble combined bytes for chained answer response
                             if (parseBytes)
@@ -374,7 +378,8 @@ namespace Devices.Verifone.Connection
             return buffer;
         }
 
-        private bool ProcessChainedMessageResponseIfAppropriate(bool isFirstPacket, ref byte[] buffer, int readLength, ref bool moreData, ref bool parseBytes)
+        private bool ProcessChainedMessageResponseIfAppropriate(bool isFirstPacket, ref byte[] buffer, int readLength,
+            ref bool moreData, ref bool parseBytes)
         {
             bool firstPacket = isFirstPacket;
 

@@ -1,8 +1,10 @@
 ===============================================================================
 Verifone Terminal Logs Retrieval Tool
 ===============================================================================
-Version : 1.0.0.2
-Date    : 10/06/2022
+Version : 1.0.0.3
+Date    : 10/10/2022
+Changes : Improved UX terminal retrieval by changing port read delay from 10 ms
+          to 50 ms.
 
 This tool allows the user to retrieve terminal logs from a Verifone device and
 it can operate in two modes as follows.

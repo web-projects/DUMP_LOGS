@@ -131,6 +131,8 @@ namespace Devices.Verifone.Connection
                 }
                 else if (combinedResponseBytes[2] > (combinedResponseLength - headerProtoLen) && !isChainedCommand)  // command is not chained
                 {
+                    deviceLogHandler?.Invoke(LogLevel.Info,
+                        string.Format("VIPA-RRCBADD [{0}]: EXPECTED-LEN=0x{1:X2} - CALCULATED-LEN=0x{2:X2}", comPort, combinedResponseBytes[2], (combinedResponseLength - headerProtoLen)));
                     readErrorLevel = ReadErrorLevel.Invalid_CombinedBytes;
                     return true;
                 }
@@ -180,6 +182,7 @@ namespace Devices.Verifone.Connection
                         consumedResponseBytesLength = componentBytesLength + headerProtoLen;
 
                         Debug.WriteLineIf(SerialConnection.LogSerialBytes, $"VIPA-RRCBADD [{comPort}]: {BitConverter.ToString(componentBytes, 0, componentBytesLength)}");
+                        deviceLogHandler?.Invoke(LogLevel.Info, $"VIPA-RRCBADD [{comPort}]: {BitConverter.ToString(componentBytes, 0, componentBytesLength)}");
                     }
                     catch (Exception ex)
                     {
@@ -230,7 +233,10 @@ namespace Devices.Verifone.Connection
         /// <param name="responseTaglessHandler"></param>
         /// <param name="responseContactlessHandler"></param>
         /// <param name="isChainedMessageResponse"></param>
-        public void ReadAndExecute(VIPAImpl.ResponseTagsHandlerDelegate responseTagsHandler, VIPAImpl.ResponseTaglessHandlerDelegate responseTaglessHandler, VIPAImpl.ResponseCLessHandlerDelegate responseContactlessHandler, bool isChainedMessageResponse = false)
+        public void ReadAndExecute(VIPAImpl.ResponseTagsHandlerDelegate responseTagsHandler, 
+            VIPAImpl.ResponseTaglessHandlerDelegate responseTaglessHandler, 
+            VIPAImpl.ResponseCLessHandlerDelegate responseContactlessHandler, 
+            bool isChainedMessageResponse = false)
         {
             bool addedResponseComponent = true;
 
@@ -534,8 +540,19 @@ namespace Devices.Verifone.Connection
             return length;
         }
 
+        // For specific commands, there is an Le byte (the “expected” length of data to be returned).
+        // This would mean that the following packet structure could occur:
+        // [NAD, PCB, LEN]
+        // [CLA, INS, P1, P2, Lc]
+        // [Data, Le]
+        // [LRC]
         private byte CalculateLRCFromByteArray(byte[] array, int packetOffset = 0)
         {
+            // Packet length (LEN) byte
+            // The LEN byte is the length of the packet.It includes the CLA, INS, P1, P2 bytes(but not for subsequent
+            // packets in Chained commands), includes the Lc and data field (if present) bytes, and includes the Le
+            // byte(if present), includes the SW1 - SW2 bytes for responses, but excludes the LRC byte.
+
             // VIPA Specification: the maximum possible LEN byte value is 0xFE (254 bytes)
             int maxPacketLen = Math.Min((packetOffset > 0 ? packetOffset : (array[2] + 3)), array.Length - 1);
             byte lrc = 0x00;

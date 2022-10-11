@@ -41,3 +41,4 @@ This an application for retrieve terminal logs from Verifone Devices.
 * 20221003 - Presentation clean up.
 * 20221005 - Implemented ADK Log Reset.
 * 20221006 - Added FileCoordinator class.
+* 20221010 - Improved UX device log reading.

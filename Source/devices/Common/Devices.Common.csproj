@@ -11,6 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\common\Constants\Constants.csproj" />
     <ProjectReference Include="..\..\common\execution\Execution.csproj" />
     <ProjectReference Include="..\..\common\ProtoBuf\ProtoBuf.csproj" />
     <ProjectReference Include="..\..\common\xo\XO.csproj" />
